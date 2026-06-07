@@ -23,74 +23,74 @@
  */
 class Channel
 {
-private:
-	std::string   _name;            // Channel name, including the leading '#'.
-	std::string   _topic;           // Current topic. Empty string = no topic.
-	std::string   _key;             // Mode +k password. Meaningful only if _hasKey.
-	bool          _inviteOnly;      // Mode +i: only invited clients may JOIN.
-	bool          _topicRestricted; // Mode +t: only operators may change the topic.
-	bool          _hasKey;          // Whether mode +k is currently set.
-	bool          _hasUserLimit;    // Whether mode +l is currently set.
-	std::size_t   _userLimit;       // Mode +l value: max number of members.
-	std::set<int> _members;         // fds of every client currently in the channel.
-	std::set<int> _operators;       // fds of clients holding the +o privilege.
-	std::set<int> _invited;         // fds explicitly invited (needed when +i).
+	private:
+		std::string   _name;            // Channel name, including the leading '#'.
+		std::string   _topic;           // Current topic. Empty string = no topic.
+		std::string   _key;             // Mode +k password. Meaningful only if _hasKey.
+		bool          _inviteOnly;      // Mode +i: only invited clients may JOIN.
+		bool          _topicRestricted; // Mode +t: only operators may change the topic.
+		bool          _hasKey;          // Whether mode +k is currently set.
+		bool          _hasUserLimit;    // Whether mode +l is currently set.
+		std::size_t   _userLimit;       // Mode +l value: max number of members.
+		std::set<int> _members;         // fds of every client currently in the channel.
+		std::set<int> _operators;       // fds of clients holding the +o privilege.
+		std::set<int> _invited;         // fds explicitly invited (needed when +i).
 
-public:
-	// --- Orthodox Canonical Form ---
-	Channel();
-	explicit Channel(const std::string& name);
-	Channel(const Channel& other);
-	Channel& operator=(const Channel& other);
-	~Channel();
+	public:
+		// --- Orthodox Canonical Form ---
+		Channel();
+		explicit Channel(const std::string& name);
+		Channel(const Channel& other);
+		Channel& operator=(const Channel& other);
+		~Channel();
 
-	const std::string& getName() const;
+		const std::string& getName() const;
 
-	// --- members ---
-	void                 addMember(int fd);
-	void                 removeMember(int fd);   // also drops it from ops & invites
-	bool                 isMember(int fd) const;
-	bool                 isEmpty() const;
-	std::size_t          memberCount() const;
-	const std::set<int>& getMembers() const;     // Server iterates this to broadcast
+		// --- members ---
+		void                 addMember(int fd);
+		void                 removeMember(int fd);   // also drops it from ops & invites
+		bool                 isMember(int fd) const;
+		bool                 isEmpty() const;
+		std::size_t          memberCount() const;
+		const std::set<int>& getMembers() const;     // Server iterates this to broadcast
 
-	// --- operators (+o) ---
-	void addOperator(int fd);
-	void removeOperator(int fd);
-	bool isOperator(int fd) const;
+		// --- operators (+o) ---
+		void addOperator(int fd);
+		void removeOperator(int fd);
+		bool isOperator(int fd) const;
 
-	// --- invites (+i) ---
-	void addInvite(int fd);
-	void removeInvite(int fd);
-	bool isInvited(int fd) const;
+		// --- invites (+i) ---
+		void addInvite(int fd);
+		void removeInvite(int fd);
+		bool isInvited(int fd) const;
 
-	// --- topic ---
-	void               setTopic(const std::string& topic);
-	const std::string& getTopic() const;
-	bool               hasTopic() const;
+		// --- topic ---
+		void               setTopic(const std::string& topic);
+		const std::string& getTopic() const;
+		bool               hasTopic() const;
 
-	// --- mode +i ---
-	void setInviteOnly(bool value);
-	bool isInviteOnly() const;
+		// --- mode +i ---
+		void setInviteOnly(bool value);
+		bool isInviteOnly() const;
 
-	// --- mode +t ---
-	void setTopicRestricted(bool value);
-	bool isTopicRestricted() const;
+		// --- mode +t ---
+		void setTopicRestricted(bool value);
+		bool isTopicRestricted() const;
 
-	// --- mode +k ---
-	void               setKey(const std::string& key);
-	void               removeKey();
-	bool               hasKey() const;
-	const std::string& getKey() const;
+		// --- mode +k ---
+		void               setKey(const std::string& key);
+		void               removeKey();
+		bool               hasKey() const;
+		const std::string& getKey() const;
 
-	// --- mode +l ---
-	void        setUserLimit(std::size_t limit);
-	void        removeUserLimit();
-	bool        hasUserLimit() const;
-	std::size_t getUserLimit() const;
+		// --- mode +l ---
+		void        setUserLimit(std::size_t limit);
+		void        removeUserLimit();
+		bool        hasUserLimit() const;
+		std::size_t getUserLimit() const;
 
-	/** @brief Builds a mode string like "+itk" for MODE / 324 replies. */
-	std::string getModeString() const;
+		/** @brief Builds a mode string like "+itk" for MODE / 324 replies. */
+		std::string getModeString() const;
 };
 
 #endif // CHANNEL_HPP

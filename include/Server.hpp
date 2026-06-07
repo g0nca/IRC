@@ -24,80 +24,80 @@
  */
 class Server
 {
-private:
-	int                             _listenFd;  // Listening socket fd.
-	int                             _port;      // Bound port (1..65535).
-	std::string                     _password;  // Value every client must PASS.
-	std::vector<struct pollfd>      _pollFds;   // One entry per watched fd (the
-	                                            // listen socket + every client).
-	std::map<int, Client*>          _clients;   // fd -> connected Client.
-	std::map<std::string, Channel*> _channels;  // channel name -> Channel.
-	CommandHandler                  _commands;  // The protocol dispatcher (Person B).
-	static bool                     _running;   // Set to false by the SIGINT handler
-	                                            // to break the poll() loop cleanly.
+	private:
+		int                             _listenFd;  // Listening socket fd.
+		int                             _port;      // Bound port (1..65535).
+		std::string                     _password;  // Value every client must PASS.
+		std::vector<struct pollfd>      _pollFds;   // One entry per watched fd (the
+													// listen socket + every client).
+		std::map<int, Client*>          _clients;   // fd -> connected Client.
+		std::map<std::string, Channel*> _channels;  // channel name -> Channel.
+		CommandHandler                  _commands;  // The protocol dispatcher (Person B).
+		static bool                     _running;   // Set to false by the SIGINT handler
+													// to break the poll() loop cleanly.
 
-	// Copying disabled.
-	Server(const Server& other);
-	Server& operator=(const Server& other);
+		// Copying disabled.
+		Server(const Server& other);
+		Server& operator=(const Server& other);
 
-public:
-	Server(int port, const std::string& password);
-	~Server();   // closes all fds and frees every Client/Channel.
+	public:
+		Server(int port, const std::string& password);
+		~Server();   // closes all fds and frees every Client/Channel.
 
-	/**
-	 * @brief Set up the socket and run the single poll() event loop.
-	 *        Implemented by A Person.
-	 */
-	void run();
+		/**
+		 * @brief Set up the socket and run the single poll() event loop.
+		 *        Implemented by A Person.
+		 */
+		void run();
 
-	static void requestStop();   // called from the signal handler
-	static bool isRunning();
+		static void requestStop();   // called from the signal handler
+		static bool isRunning();
 
-	// ========================= CONTRACT (used by B Person) =========================
-	// Everything below is the agreed surface CommandHandler relies on.
+		// ========================= CONTRACT (used by B Person) =========================
+		// Everything below is the agreed surface CommandHandler relies on.
 
-	const std::string& getPassword() const;
+		const std::string& getPassword() const;
 
-	/** @return the Client* for an fd, or NULL if unknown. */
-	Client*  getClientByFd(int fd);
-	/** @return the Client* whose nickname matches, or NULL if none. */
-	Client*  getClientByNick(const std::string& nick);
+		/** @return the Client* for an fd, or NULL if unknown. */
+		Client*  getClientByFd(int fd);
+		/** @return the Client* whose nickname matches, or NULL if none. */
+		Client*  getClientByNick(const std::string& nick);
 
-	/** @return the Channel* for a name, or NULL if it does not exist. */
-	Channel* getChannel(const std::string& name);
-	/** @return the existing channel, creating an empty one if needed. */
-	Channel* getOrCreateChannel(const std::string& name);
-	/** @brief Delete the channel if it has no members left. */
-	void     removeChannelIfEmpty(const std::string& name);
+		/** @return the Channel* for a name, or NULL if it does not exist. */
+		Channel* getChannel(const std::string& name);
+		/** @return the existing channel, creating an empty one if needed. */
+		Channel* getOrCreateChannel(const std::string& name);
+		/** @brief Delete the channel if it has no members left. */
+		void     removeChannelIfEmpty(const std::string& name);
 
-	/**
-	 * @brief Queue a message to a single client: appends to its out buffer and
-	 *        makes sure poll() watches POLLOUT for that fd.
-	 */
-	void sendToClient(int fd, const std::string& message);
+		/**
+		 * @brief Queue a message to a single client: appends to its out buffer and
+		 *        makes sure poll() watches POLLOUT for that fd.
+		 */
+		void sendToClient(int fd, const std::string& message);
 
-	/**
-	 * @brief Send a message to every member of a channel.
-	 * @param exceptFd fd to skip (e.g. the sender). Pass -1 to send to everyone.
-	 */
-	void broadcastToChannel(const std::string& channel,
-	                        const std::string& message, int exceptFd);
+		/**
+		 * @brief Send a message to every member of a channel.
+		 * @param exceptFd fd to skip (e.g. the sender). Pass -1 to send to everyone.
+		 */
+		void broadcastToChannel(const std::string& channel,
+								const std::string& message, int exceptFd);
 
-	/**
-	 * @brief Fully disconnect a client: remove it from all channels, close its
-	 *        fd, drop it from poll() and free the object.
-	 */
-	void disconnectClient(int fd);
-	// ===============================================================================
+		/**
+		 * @brief Fully disconnect a client: remove it from all channels, close its
+		 *        fd, drop it from poll() and free the object.
+		 */
+		void disconnectClient(int fd);
+		// ===============================================================================
 
-private:
-	// --- network internals (Person A) ---
-	void setupSocket();              // socket + setsockopt + bind + listen
-	void acceptNewClient();          // accept + O_NONBLOCK + register in poll
-	void handleClientData(int fd);   // recv -> buffer -> parse -> _commands.dispatch
-	void flushClientOutput(int fd);  // send the queued out buffer (on POLLOUT)
-	void addToPoll(int fd, short events);
-	void removeFromPoll(int fd);
+	private:
+		// --- network internals (Person A) ---
+		void setupSocket();              // socket + setsockopt + bind + listen
+		void acceptNewClient();          // accept + O_NONBLOCK + register in poll
+		void handleClientData(int fd);   // recv -> buffer -> parse -> _commands.dispatch
+		void flushClientOutput(int fd);  // send the queued out buffer (on POLLOUT)
+		void addToPoll(int fd, short events);
+		void removeFromPoll(int fd);
 };
 
 #endif // SERVER_HPP
