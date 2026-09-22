@@ -139,15 +139,12 @@ void Server::handleClientData(int fd)
 	}
 
 	client->appendToInBuffer(std::string(buf, static_cast<std::size_t>(n)));
-	std::cerr << "[DBG] recv fd=" << fd << " bytes=" << n << " raw=|" << std::string(buf, static_cast<std::size_t>(n)) << "|\n";
 
 	/* Processar todas as linhas completas acumuladas no buffer */
 	std::string line;
 	while (client->extractMessage(line))
 	{
-		std::cerr << "[DBG] extracted line=|" << line << "|\n";
 		Message msg = parseMessage(line);
-		std::cerr << "[DBG] parsed cmd=|" << msg.command << "| params=" << msg.params.size() << " hasTrailing=" << msg.hasTrailing << "\n";
 		if (msg.command.empty())
 			continue;
 

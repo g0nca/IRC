@@ -46,6 +46,25 @@ void CommandHandler::dispatch(Client& client, const Message& msg)
 {
 	const std::string& cmd = msg.command;
 
+	/* CAP: negociação de capacidades IRCv3. O servidor não suporta nenhuma;
+	   responde com lista vazia a LS e rejeita REQ, para que o cliente avance. */
+	if (cmd == "CAP")
+	{
+		std::string sub = msg.params.empty() ? "" : msg.params[0];
+		std::string nick = client.getNickname().empty() ? "*" : client.getNickname();
+		if (sub == "LS")
+			_server.sendToClient(client.getFd(),
+				":" SERVER_NAME " CAP " + nick + " LS :\r\n");
+		else if (sub == "REQ")
+		{
+			std::string caps = msg.hasTrailing ? msg.trailing : "";
+			_server.sendToClient(client.getFd(),
+				":" SERVER_NAME " CAP " + nick + " NAK :" + caps + "\r\n");
+		}
+		/* END e outros sub-comandos: ignorar silenciosamente */
+		return;
+	}
+
 	/* Comandos de registo (não requerem estar registado) */
 	if      (cmd == "PASS")    handlePass(client, msg);
 	else if (cmd == "NICK")    handleNick(client, msg);
