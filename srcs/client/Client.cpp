@@ -175,12 +175,29 @@ void Client::appendToInBuffer(const std::string& data)
 */
 bool Client::extractMessage(std::string& lineOut)
 {
-	std::size_t pos = _inBuffer.find("\r\n");
-	if (pos == std::string::npos)
+	std::size_t crlf = _inBuffer.find("\r\n");
+	std::size_t lf   = _inBuffer.find('\n');
+
+	std::size_t pos;
+	std::size_t skip;
+
+	if (crlf != std::string::npos && (lf == std::string::npos || crlf <= lf))
+	{
+		pos  = crlf;
+		skip = 2;
+	}
+	else if (lf != std::string::npos)
+	{
+		pos  = lf;
+		skip = 1;
+	}
+	else
 		return false;
 
-	lineOut = _inBuffer.substr(0, pos);     /* linha sem o \r\n */
-	_inBuffer.erase(0, pos + 2);            /* remove linha + terminador */
+	lineOut = _inBuffer.substr(0, pos);
+	if (!lineOut.empty() && lineOut[lineOut.size() - 1] == '\r')
+		lineOut.erase(lineOut.size() - 1);
+	_inBuffer.erase(0, pos + skip);
 	return true;
 }
 
