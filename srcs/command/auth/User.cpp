@@ -1,10 +1,10 @@
 /*
-** User.cpp — Handler do comando USER.
+** User.cpp — Handler for the USER command.
 **
 ** USER <username> <hostname> <servername> :<realname>
-** Último passo do handshake (PASS → NICK → USER). Define o username e o
-** realname do cliente. Se PASS e NICK já estiverem feitos, completa o
-** registo e envia as boas-vindas (001–004).
+** Last step of the handshake (PASS → NICK → USER). Sets the username and
+** realname of the client. If PASS and NICK are already done, completes the
+** registration and sends the welcome replies (001–004).
 */
 
 #include "CommandHandler.hpp"
@@ -14,19 +14,19 @@
 
 /*
 ** CommandHandler::handleUser
-** Processa o comando USER e, se o handshake estiver completo, regista o cliente.
+** Processes the USER command and, if the handshake is complete, registers the client.
 **
-** Recebe: client — quem enviou USER.
-**         msg    — params[0]=username, trailing=realname (obrigatório).
+** Receives: client — who sent USER.
+**           msg    — params[0]=username, trailing=realname (required).
 **
-** Respostas possíveis:
-**   462 ERR_ALREADYREGISTERED — já registado
-**   461 ERR_NEEDMOREPARAMS    — faltam parâmetros
-**   001–004 RPL_WELCOME…      — registo completo com sucesso
+** Possible replies:
+**   462 ERR_ALREADYREGISTERED — already registered
+**   461 ERR_NEEDMOREPARAMS    — missing parameters
+**   001–004 RPL_WELCOME…      — registration completed successfully
 */
 void CommandHandler::handleUser(Client& client, const Message& msg)
 {
-	/* Já registado: USER não pode repetir-se */
+	/* Already registered: USER cannot be repeated */
 	if (client.isRegistered())
 	{
 		_server.sendToClient(client.getFd(),
@@ -34,7 +34,7 @@ void CommandHandler::handleUser(Client& client, const Message& msg)
 		return;
 	}
 
-	/* Precisa de: username (params[0]) e realname (trailing) */
+	/* Requires: username (params[0]) and realname (trailing) */
 	if (msg.params.empty() || !msg.hasTrailing)
 	{
 		std::string nick = client.getNickname().empty() ? "*" : client.getNickname();
@@ -45,7 +45,7 @@ void CommandHandler::handleUser(Client& client, const Message& msg)
 	client.setUsername(msg.params[0]);
 	client.setRealname(msg.trailing);
 
-	/* Verificar se o registo está completo (PASS + NICK + USER) */
+	/* Check if registration is complete (PASS + NICK + USER) */
 	if (client.hasReceivedPass() && !client.getNickname().empty())
 	{
 		client.setRegistered(true);

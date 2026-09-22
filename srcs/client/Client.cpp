@@ -1,10 +1,10 @@
 /*
-** Client.cpp — Representa um utilizador TCP ligado ao servidor.
+** Client.cpp — Represents a connected TCP user.
 **
-** A camada de rede (Person A) gere o ciclo de vida (criação no accept,
-** destruição no quit/disconnect) e preenche os buffers de I/O.
-** A camada de protocolo (Person B) lê os campos de identidade e muda
-** os flags de registo.
+** The network layer (Person A) manages the lifecycle (created on accept,
+** destroyed on quit/disconnect) and fills the I/O buffers.
+** The protocol layer (Person B) reads the identity fields and flips the
+** registration flags.
 */
 
 #include "Client.hpp"
@@ -14,8 +14,8 @@
 
 /*
 ** Client()
-** Construtor por defeito. Cria um Client sem socket associado.
-** _fd = -1 sinaliza "sem socket". Todos os flags inicializados a false.
+** Default constructor. Creates a Client with no associated socket.
+** _fd = -1 signals "no socket". All flags initialised to false.
 */
 Client::Client()
 	: _fd(-1),
@@ -31,8 +31,8 @@ Client::Client()
 
 /*
 ** Client(int fd)
-** Construtor principal. Liga o Client ao file descriptor de um socket aceite.
-** Recebe: fd — o file descriptor do socket TCP.
+** Main constructor. Binds the Client to the file descriptor of an accepted socket.
+** Receives: fd — the TCP socket file descriptor.
 */
 Client::Client(int fd)
 	: _fd(fd),
@@ -48,8 +48,8 @@ Client::Client(int fd)
 
 /*
 ** Client(const Client& other)
-** Construtor de cópia. Copia todos os campos incluindo buffers.
-** Recebe: referência constante para o Client a copiar.
+** Copy constructor. Copies all fields including buffers.
+** Receives: const reference to the Client to copy.
 */
 Client::Client(const Client& other)
 	: _fd(other._fd),
@@ -65,9 +65,9 @@ Client::Client(const Client& other)
 
 /*
 ** operator=
-** Atribuição por cópia. Protege auto-atribuição.
-** Recebe: referência constante para o Client fonte.
-** Devolve: referência para this.
+** Copy assignment. Guards against self-assignment.
+** Receives: const reference to the source Client.
+** Returns: reference to this.
 */
 Client& Client::operator=(const Client& other)
 {
@@ -88,8 +88,8 @@ Client& Client::operator=(const Client& other)
 
 /*
 ** ~Client()
-** Destrutor. NÃO fecha o fd — é responsabilidade do Server fechar o socket
-** antes de apagar o Client.
+** Destructor. Does NOT close the fd — the Server is responsible for closing
+** the socket before deleting the Client.
 */
 Client::~Client() {}
 
@@ -97,8 +97,8 @@ Client::~Client() {}
 
 /*
 ** getFd / getNickname / getUsername / getRealname / getHostname
-** Acessores simples para os campos de identidade do cliente.
-** Devolvem: referência constante ou valor inteiro do campo pedido.
+** Simple accessors for the client identity fields.
+** Return: const reference or integer value of the requested field.
 */
 int                Client::getFd()       const { return _fd; }
 const std::string& Client::getNickname() const { return _nickname; }
@@ -110,9 +110,9 @@ const std::string& Client::getHostname() const { return _hostname; }
 
 /*
 ** setNickname / setUsername / setRealname / setHostname
-** Mutadores simples. Chamados pela camada de protocolo durante o registo
-** e durante mudanças de nick em runtime.
-** Recebem: string com o novo valor do campo.
+** Simple mutators. Called by the protocol layer during registration
+** and during runtime nick changes.
+** Receive: string with the new value for the field.
 */
 void Client::setNickname(const std::string& nickname) { _nickname = nickname; }
 void Client::setUsername(const std::string& username) { _username = username; }
@@ -123,16 +123,16 @@ void Client::setHostname(const std::string& hostname) { _hostname = hostname; }
 
 /*
 ** hasReceivedPass / setPassReceived
-** Flag que marca se o client já enviou um PASS válido.
-** Devolve/recebe: bool.
+** Flag that marks whether the client has already sent a valid PASS.
+** Returns/receives: bool.
 */
 bool Client::hasReceivedPass() const        { return _passReceived; }
 void Client::setPassReceived(bool value)    { _passReceived = value; }
 
 /*
 ** isRegistered / setRegistered
-** Flag que marca se o handshake PASS+NICK+USER foi completado com sucesso.
-** Só após setRegistered(true) é que os comandos normais são aceites.
+** Flag that marks whether the PASS+NICK+USER handshake completed successfully.
+** Only after setRegistered(true) are normal commands accepted.
 */
 bool Client::isRegistered() const           { return _registered; }
 void Client::setRegistered(bool value)      { _registered = value; }
@@ -141,9 +141,9 @@ void Client::setRegistered(bool value)      { _registered = value; }
 
 /*
 ** getPrefix
-** Constrói o prefixo "nick!user@host" usado no início das mensagens
-** que o servidor envia em nome deste cliente.
-** Devolve: string no formato "nick!user@host".
+** Builds the "nick!user@host" prefix prepended to messages the server sends
+** on behalf of this client.
+** Returns: string in the format "nick!user@host".
 */
 std::string Client::getPrefix() const
 {
@@ -155,10 +155,10 @@ std::string Client::getPrefix() const
 
 /*
 ** appendToInBuffer
-** Acrescenta bytes recebidos pelo recv() ao buffer de entrada.
-** O TCP é um stream, por isso os dados podem chegar em pedaços;
-** este buffer acumula-os até ter uma linha completa.
-** Recebe: string com os bytes lidos do socket.
+** Appends bytes received by recv() to the input buffer.
+** TCP is a stream, so data may arrive in fragments; this buffer accumulates
+** them until a complete line is available.
+** Receives: string containing the bytes read from the socket.
 */
 void Client::appendToInBuffer(const std::string& data)
 {
@@ -167,11 +167,11 @@ void Client::appendToInBuffer(const std::string& data)
 
 /*
 ** extractMessage
-** Extrai UMA linha completa (terminada em "\r\n") do buffer de entrada.
-** Remove o terminador da string resultante.
-** Recebe: referência para string que receberá a linha extraída.
-** Devolve: true se foi extraída uma linha; false se o buffer ainda não tem
-**          um terminador completo.
+** Extracts ONE complete line (terminated by "\r\n" or "\n") from the input
+** buffer. Strips the terminator from the result.
+** Receives: reference to a string that will receive the extracted line.
+** Returns: true if a line was extracted; false if the buffer has no complete
+**          terminator yet.
 */
 bool Client::extractMessage(std::string& lineOut)
 {
@@ -205,9 +205,9 @@ bool Client::extractMessage(std::string& lineOut)
 
 /*
 ** appendToOutBuffer
-** Acrescenta dados ao buffer de saída. O server activa POLLOUT para este fd
-** imediatamente a seguir. O envio real acontece em flushClientOutput().
-** Recebe: string com os bytes a enfileirar.
+** Appends data to the output buffer. The server enables POLLOUT for this fd
+** immediately afterwards. The actual send happens in flushClientOutput().
+** Receives: string containing the bytes to enqueue.
 */
 void Client::appendToOutBuffer(const std::string& data)
 {
@@ -216,9 +216,9 @@ void Client::appendToOutBuffer(const std::string& data)
 
 /*
 ** getOutBuffer
-** Devolve referência constante ao buffer de saída (usado pelo Server para
-** chamar send() com os dados pendentes).
-** Devolve: referência constante para _outBuffer.
+** Returns a const reference to the output buffer (used by the Server to
+** call send() with the pending data).
+** Returns: const reference to _outBuffer.
 */
 const std::string& Client::getOutBuffer() const
 {
@@ -227,9 +227,9 @@ const std::string& Client::getOutBuffer() const
 
 /*
 ** consumeOutBuffer
-** Remove 'count' bytes do início do buffer de saída após um send() parcial
-** ou total ter sido bem-sucedido.
-** Recebe: número de bytes confirmados enviados.
+** Removes 'count' bytes from the front of the output buffer after a partial
+** or full send() succeeded.
+** Receives: number of bytes confirmed as sent.
 */
 void Client::consumeOutBuffer(std::size_t count)
 {
@@ -241,8 +241,8 @@ void Client::consumeOutBuffer(std::size_t count)
 
 /*
 ** hasPendingOutput
-** Indica se há bytes por enviar no buffer de saída.
-** Devolve: true se o buffer tem conteúdo, false se estiver vazio.
+** Indicates whether there are bytes waiting to be sent in the output buffer.
+** Returns: true if the buffer has content, false if empty.
 */
 bool Client::hasPendingOutput() const
 {

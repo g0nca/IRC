@@ -1,10 +1,10 @@
 /*
-** Channel.cpp — Sala de chat IRC.
+** Channel.cpp — IRC chat room.
 **
-** Armazena membros, operadores, convidados e todos os modos do canal.
-** Membros são representados como file descriptors (int); o Server resolve
-** o fd para um Client* quando precisa de enviar. Isto evita dangling
-** pointers quando um cliente desliga.
+** Stores members, operators, invited clients and all channel modes.
+** Members are represented as file descriptors (int); the Server resolves
+** an fd to a Client* when it needs to send. This avoids dangling pointers
+** when a client disconnects.
 */
 
 #include "Channel.hpp"
@@ -13,7 +13,7 @@
 
 /*
 ** Channel()
-** Construtor por defeito. Cria um canal sem nome e com todos os modos off.
+** Default constructor. Creates a channel with no name and all modes off.
 */
 Channel::Channel()
 	: _name(),
@@ -31,8 +31,8 @@ Channel::Channel()
 
 /*
 ** Channel(const std::string& name)
-** Construtor principal. Cria um canal com o nome dado (deve incluir '#').
-** Recebe: nome do canal.
+** Main constructor. Creates a channel with the given name (must include '#').
+** Receives: channel name.
 */
 Channel::Channel(const std::string& name)
 	: _name(name),
@@ -50,7 +50,7 @@ Channel::Channel(const std::string& name)
 
 /*
 ** Channel(const Channel& other)
-** Construtor de cópia.
+** Copy constructor.
 */
 Channel::Channel(const Channel& other)
 	: _name(other._name),
@@ -68,7 +68,7 @@ Channel::Channel(const Channel& other)
 
 /*
 ** operator=
-** Atribuição por cópia. Protege auto-atribuição.
+** Copy assignment. Guards against self-assignment.
 */
 Channel& Channel::operator=(const Channel& other)
 {
@@ -91,7 +91,7 @@ Channel& Channel::operator=(const Channel& other)
 
 /*
 ** ~Channel()
-** Destrutor trivial (os sets de int não têm gestão dinâmica de memória).
+** Trivial destructor (the int sets have no dynamic memory management).
 */
 Channel::~Channel() {}
 
@@ -99,7 +99,7 @@ Channel::~Channel() {}
 
 /*
 ** getName
-** Devolve: referência constante para o nome do canal (com '#').
+** Returns: const reference to the channel name (including '#').
 */
 const std::string& Channel::getName() const { return _name; }
 
@@ -107,8 +107,8 @@ const std::string& Channel::getName() const { return _name; }
 
 /*
 ** addMember
-** Adiciona um fd ao conjunto de membros do canal.
-** Recebe: fd do cliente a adicionar.
+** Adds an fd to the channel member set.
+** Receives: fd of the client to add.
 */
 void Channel::addMember(int fd)
 {
@@ -117,9 +117,9 @@ void Channel::addMember(int fd)
 
 /*
 ** removeMember
-** Remove um fd dos membros, operadores e lista de convidados.
-** É seguro chamar mesmo que o fd não esteja no canal.
-** Recebe: fd do cliente a remover.
+** Removes an fd from members, operators and the invite list.
+** Safe to call even if the fd is not in the channel.
+** Receives: fd of the client to remove.
 */
 void Channel::removeMember(int fd)
 {
@@ -130,9 +130,9 @@ void Channel::removeMember(int fd)
 
 /*
 ** isMember
-** Verifica se um fd está actualmente no canal.
-** Recebe: fd do cliente.
-** Devolve: true se o fd é membro, false caso contrário.
+** Checks whether an fd is currently in the channel.
+** Receives: client fd.
+** Returns: true if the fd is a member, false otherwise.
 */
 bool Channel::isMember(int fd) const
 {
@@ -141,8 +141,8 @@ bool Channel::isMember(int fd) const
 
 /*
 ** isEmpty
-** Indica se o canal não tem membros (pode ser destruído).
-** Devolve: true se _members está vazio.
+** Indicates whether the channel has no members (can be destroyed).
+** Returns: true if _members is empty.
 */
 bool Channel::isEmpty() const
 {
@@ -151,7 +151,7 @@ bool Channel::isEmpty() const
 
 /*
 ** memberCount
-** Devolve: número actual de membros.
+** Returns: current number of members.
 */
 std::size_t Channel::memberCount() const
 {
@@ -160,8 +160,8 @@ std::size_t Channel::memberCount() const
 
 /*
 ** getMembers
-** Devolve: referência constante ao conjunto de fds membros.
-**          Usado pelo Server para iterar e fazer broadcast.
+** Returns: const reference to the set of member fds.
+**          Used by the Server to iterate and broadcast.
 */
 const std::set<int>& Channel::getMembers() const
 {
@@ -172,9 +172,9 @@ const std::set<int>& Channel::getMembers() const
 
 /*
 ** addOperator / removeOperator / isOperator
-** Gerem o conjunto de operadores do canal (+o).
-** Recebem: fd do cliente.
-** isOperator devolve: true se o fd tem privilégios de operador.
+** Manage the channel operator set (+o).
+** Receive: client fd.
+** isOperator returns: true if the fd holds operator privileges.
 */
 void Channel::addOperator(int fd)    { _operators.insert(fd); }
 void Channel::removeOperator(int fd) { _operators.erase(fd); }
@@ -187,9 +187,9 @@ bool Channel::isOperator(int fd) const
 
 /*
 ** addInvite / removeInvite / isInvited
-** Gerem a lista de fds explicitamente convidados (relevante com modo +i).
-** Recebem: fd do cliente.
-** isInvited devolve: true se o fd tem convite.
+** Manage the list of explicitly invited fds (relevant with mode +i).
+** Receive: client fd.
+** isInvited returns: true if the fd has an invite.
 */
 void Channel::addInvite(int fd)    { _invited.insert(fd); }
 void Channel::removeInvite(int fd) { _invited.erase(fd); }
@@ -202,10 +202,10 @@ bool Channel::isInvited(int fd) const
 
 /*
 ** setTopic / getTopic / hasTopic
-** Gerem o tópico actual do canal.
-** setTopic recebe: string com o novo tópico (pode ser vazia para remover).
-** getTopic devolve: referência constante ao tópico.
-** hasTopic devolve: true se o tópico não está vazio.
+** Manage the current channel topic.
+** setTopic receives: string with the new topic (can be empty to clear it).
+** getTopic returns: const reference to the topic.
+** hasTopic returns: true if the topic is not empty.
 */
 void               Channel::setTopic(const std::string& topic) { _topic = topic; }
 const std::string& Channel::getTopic() const                   { return _topic; }
@@ -215,7 +215,7 @@ bool               Channel::hasTopic() const                   { return !_topic.
 
 /*
 ** setInviteOnly / isInviteOnly
-** Controla o modo +i: apenas convidados podem fazer JOIN.
+** Controls mode +i: only invited clients may JOIN.
 */
 void Channel::setInviteOnly(bool value) { _inviteOnly = value; }
 bool Channel::isInviteOnly() const      { return _inviteOnly; }
@@ -224,7 +224,7 @@ bool Channel::isInviteOnly() const      { return _inviteOnly; }
 
 /*
 ** setTopicRestricted / isTopicRestricted
-** Controla o modo +t: apenas operadores podem alterar o tópico.
+** Controls mode +t: only operators may change the topic.
 */
 void Channel::setTopicRestricted(bool value) { _topicRestricted = value; }
 bool Channel::isTopicRestricted() const      { return _topicRestricted; }
@@ -233,8 +233,8 @@ bool Channel::isTopicRestricted() const      { return _topicRestricted; }
 
 /*
 ** setKey
-** Define a chave do canal (password de JOIN). Activa o modo +k.
-** Recebe: string com a chave.
+** Sets the channel key (JOIN password). Activates mode +k.
+** Receives: string with the key.
 */
 void Channel::setKey(const std::string& key)
 {
@@ -244,7 +244,7 @@ void Channel::setKey(const std::string& key)
 
 /*
 ** removeKey
-** Remove a chave do canal. Desactiva o modo +k.
+** Removes the channel key. Deactivates mode +k.
 */
 void Channel::removeKey()
 {
@@ -254,8 +254,8 @@ void Channel::removeKey()
 
 /*
 ** hasKey / getKey
-** hasKey devolve: true se o modo +k está activo.
-** getKey devolve: referência constante à chave actual.
+** hasKey returns: true if mode +k is currently active.
+** getKey returns: const reference to the current key.
 */
 bool               Channel::hasKey()  const { return _hasKey; }
 const std::string& Channel::getKey()  const { return _key; }
@@ -264,8 +264,8 @@ const std::string& Channel::getKey()  const { return _key; }
 
 /*
 ** setUserLimit
-** Define o limite máximo de membros. Activa o modo +l.
-** Recebe: número máximo de utilizadores.
+** Sets the maximum member count. Activates mode +l.
+** Receives: maximum number of users.
 */
 void Channel::setUserLimit(std::size_t limit)
 {
@@ -275,7 +275,7 @@ void Channel::setUserLimit(std::size_t limit)
 
 /*
 ** removeUserLimit
-** Remove o limite de utilizadores. Desactiva o modo +l.
+** Removes the user limit. Deactivates mode +l.
 */
 void Channel::removeUserLimit()
 {
@@ -285,8 +285,8 @@ void Channel::removeUserLimit()
 
 /*
 ** hasUserLimit / getUserLimit
-** hasUserLimit devolve: true se o modo +l está activo.
-** getUserLimit devolve: valor actual do limite.
+** hasUserLimit returns: true if mode +l is currently active.
+** getUserLimit returns: current limit value.
 */
 bool        Channel::hasUserLimit() const { return _hasUserLimit; }
 std::size_t Channel::getUserLimit() const { return _userLimit; }
@@ -295,9 +295,9 @@ std::size_t Channel::getUserLimit() const { return _userLimit; }
 
 /*
 ** getModeString
-** Constrói a string de modos activos no formato "+itk" para respostas 324
-** e para broadcasts de MODE.
-** Devolve: string de modos (começa sempre com '+', ou "+" se nenhum modo activo).
+** Builds the active mode string in "+itk" format for 324 replies
+** and MODE broadcasts.
+** Returns: mode string (always starts with '+', or just "+" if no modes active).
 */
 std::string Channel::getModeString() const
 {

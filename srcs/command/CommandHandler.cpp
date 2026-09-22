@@ -1,9 +1,9 @@
 /*
-** CommandHandler.cpp — Dispatcher central de comandos IRC.
+** CommandHandler.cpp — Central IRC command dispatcher.
 **
-** dispatch() recebe um Client e um Message já parseado e invoca o handler
-** correcto. Inclui também handleQuit (simples demais para ficheiro próprio)
-** e requireRegistered (helper partilhado por todos os handlers).
+** dispatch() receives a Client and an already-parsed Message and invokes
+** the correct handler. Also contains handleQuit (too simple for its own file)
+** and requireRegistered (helper shared by all handlers).
 */
 
 #include "CommandHandler.hpp"
@@ -16,9 +16,9 @@
 
 /*
 ** CommandHandler(Server& server)
-** Recebe a referência ao servidor (o contrato). Nunca a usa durante
-** a própria construção — é seguro mesmo que Server não esteja completo ainda.
-** Recebe: referência ao Server dono deste handler.
+** Receives the server reference (the contract). Never uses it during its own
+** construction — safe even if Server is not fully built yet.
+** Receives: reference to the Server that owns this handler.
 */
 CommandHandler::CommandHandler(Server& server)
 	: _server(server)
@@ -26,7 +26,7 @@ CommandHandler::CommandHandler(Server& server)
 
 /*
 ** ~CommandHandler()
-** Destrutor trivial — o handler não possui recursos.
+** Trivial destructor — the handler owns no resources.
 */
 CommandHandler::~CommandHandler() {}
 
@@ -34,20 +34,20 @@ CommandHandler::~CommandHandler() {}
 
 /*
 ** dispatch
-** Ponto de entrada chamado pela camada de rede para cada linha completa.
-** Selecciona o handler correcto pelo nome do comando (já em maiúsculas).
-** Comandos desconhecidos recebem ERR_UNKNOWNCOMMAND (421).
-** PING é tratado inline (muito simples para handler próprio).
+** Entry point called by the network layer for each complete line.
+** Selects the correct handler by command name (already upper-cased).
+** Unknown commands receive ERR_UNKNOWNCOMMAND (421).
+** PING is handled inline (too simple for its own handler).
 **
-** Recebe: client — o cliente que enviou a linha.
-**         msg    — a linha já parseada em struct Message.
+** Receives: client — the client that sent the line.
+**           msg    — the line already parsed into a Message struct.
 */
 void CommandHandler::dispatch(Client& client, const Message& msg)
 {
 	const std::string& cmd = msg.command;
 
-	/* CAP: negociação de capacidades IRCv3. O servidor não suporta nenhuma;
-	   responde com lista vazia a LS e rejeita REQ, para que o cliente avance. */
+	/* CAP: IRCv3 capability negotiation. The server supports none;
+	   reply with an empty list to LS and reject REQ so the client proceeds. */
 	if (cmd == "CAP")
 	{
 		std::string sub = msg.params.empty() ? "" : msg.params[0];
@@ -61,17 +61,17 @@ void CommandHandler::dispatch(Client& client, const Message& msg)
 			_server.sendToClient(client.getFd(),
 				":" SERVER_NAME " CAP " + nick + " NAK :" + caps + "\r\n");
 		}
-		/* END e outros sub-comandos: ignorar silenciosamente */
+		/* END and other sub-commands: ignore silently */
 		return;
 	}
 
-	/* Comandos de registo (não requerem estar registado) */
+	/* Registration commands (do not require the client to be registered) */
 	if      (cmd == "PASS")    handlePass(client, msg);
 	else if (cmd == "NICK")    handleNick(client, msg);
 	else if (cmd == "USER")    handleUser(client, msg);
 	else if (cmd == "QUIT")    handleQuit(client, msg);
 
-	/* PING/PONG: resposta imediata, sem autenticação necessária */
+	/* PING/PONG: immediate reply, no authentication required */
 	else if (cmd == "PING")
 	{
 		std::string token = msg.params.empty()
@@ -82,29 +82,29 @@ void CommandHandler::dispatch(Client& client, const Message& msg)
 	}
 	else if (cmd == "PONG")
 	{
-		/* Resposta ao nosso PING — ignoramos (servidor não envia PING) */
+		/* Reply to our PING — ignored (the server does not send PING) */
 	}
 
-	/* Comandos de mensagem */
+	/* Messaging commands */
 	else if (cmd == "PRIVMSG") handlePrivmsg(client, msg);
 	else if (cmd == "NOTICE")  handleNotice(client, msg);
 
-	/* Comandos de canal */
+	/* Channel commands */
 	else if (cmd == "JOIN")    handleJoin(client, msg);
 	else if (cmd == "PART")    handlePart(client, msg);
 	else if (cmd == "TOPIC")   handleTopic(client, msg);
 
-	/* Comandos de operador */
+	/* Operator commands */
 	else if (cmd == "KICK")    handleKick(client, msg);
 	else if (cmd == "INVITE")  handleInvite(client, msg);
 	else if (cmd == "MODE")    handleMode(client, msg);
 
-	/* Comando desconhecido */
+	/* Unknown command */
 	else
 	{
-		/* Só envia ERR_UNKNOWNCOMMAND se o cliente já está registado;
-		   antes do registo há demasiados clientes que testam comandos
-		   não-standard e a resposta poderia confundi-los. */
+		/* Only send ERR_UNKNOWNCOMMAND if the client is already registered;
+		   before registration many clients probe non-standard commands and
+		   the error reply could confuse them. */
 		if (client.isRegistered())
 		{
 			_server.sendToClient(client.getFd(),
@@ -117,12 +117,12 @@ void CommandHandler::dispatch(Client& client, const Message& msg)
 
 /*
 ** handleQuit
-** Processa o comando QUIT [:<reason>].
-** Notifica todos os canais com a mensagem de saída e depois desliga.
-** O cliente NÃO recebe resposta (já foi desligado quando quitClient retorna).
+** Processes the QUIT [:<reason>] command.
+** Notifies all shared channels with the quit message, then disconnects.
+** The client does NOT receive a reply (already disconnected when quitClient returns).
 **
-** Recebe: client — quem enviou QUIT.
-**         msg    — parseado; o reason está em msg.trailing (opcional).
+** Receives: client — who sent QUIT.
+**           msg    — parsed; the reason is in msg.trailing (optional).
 */
 void CommandHandler::handleQuit(Client& client, const Message& msg)
 {
@@ -134,20 +134,20 @@ void CommandHandler::handleQuit(Client& client, const Message& msg)
 
 /*
 ** requireRegistered
-** Helper usado por todos os handlers que exigem o registo completo
-** (PASS+NICK+USER). Se o cliente não estiver registado, envia ERR_NOTREGISTERED
-** e devolve false para que o handler aborte.
+** Helper used by all handlers that require full registration (PASS+NICK+USER).
+** If the client is not registered, sends ERR_NOTREGISTERED and returns false
+** so the handler aborts.
 **
-** Recebe: client — o cliente a verificar.
-** Devolve: true se registado e o handler pode continuar;
-**          false se não registado (resposta 451 já enviada).
+** Receives: client — the client to check.
+** Returns: true if registered and the handler may continue;
+**          false if not registered (451 reply already sent).
 */
 bool CommandHandler::requireRegistered(Client& client)
 {
 	if (client.isRegistered())
 		return true;
 
-	/* Usa '*' como nick placeholder antes do registo completo */
+	/* Use '*' as a nick placeholder before full registration */
 	std::string nick = client.getNickname().empty() ? "*" : client.getNickname();
 	_server.sendToClient(client.getFd(), ERR_NOTREGISTERED(nick));
 	return false;

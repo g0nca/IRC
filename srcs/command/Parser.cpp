@@ -1,18 +1,18 @@
 /*
-** Parser.cpp — Converte uma linha IRC crua num struct Message.
+** Parser.cpp — Converts a raw IRC line into a Message struct.
 **
-** O TCP entrega bytes em stream; a camada de rede (Person A) reconstrói
-** linhas completas (terminadas em "\r\n") e passa-as aqui. O resultado
-** (Message) é entregue ao CommandHandler::dispatch().
+** TCP delivers bytes as a stream; the network layer (Person A) reconstructs
+** complete lines (terminated by "\r\n") and passes them here. The result
+** (Message) is delivered to CommandHandler::dispatch().
 **
-** Formato do protocolo IRC (RFC 1459):
+** IRC protocol wire format (RFC 1459):
 **   [":" prefix SP] command [SP params] [SP ":" trailing]
 **
-** Exemplos:
+** Examples:
 **   NICK alice                   → command=NICK, params=[alice]
 **   JOIN #42                     → command=JOIN, params=[#42]
-**   PRIVMSG #42 :Olá!            → command=PRIVMSG, params=[#42], trailing=Olá!
-**   :alice!u@h PRIVMSG bob :oi   → prefix=alice!u@h, command=PRIVMSG, params=[bob], trailing=oi
+**   PRIVMSG #42 :Hello!          → command=PRIVMSG, params=[#42], trailing=Hello!
+**   :alice!u@h PRIVMSG bob :hi   → prefix=alice!u@h, command=PRIVMSG, params=[bob], trailing=hi
 */
 
 #include "Message.hpp"
@@ -20,11 +20,11 @@
 
 /*
 ** parseMessage
-** Analisa sintaticamente uma linha IRC já sem o terminador "\r\n".
-** Converte o comando para maiúsculas (protocolo IRC é case-insensitive no comando).
+** Parses one IRC line already stripped of its "\r\n" terminator.
+** Converts the command to upper case (IRC commands are case-insensitive).
 **
-** Recebe: 'line' — linha IRC sem "\r\n".
-** Devolve: struct Message populado; se a linha estiver vazia, devolve Message vazio.
+** Receives: 'line' — IRC line without "\r\n".
+** Returns: populated Message struct; returns an empty Message if the line is empty.
 */
 Message parseMessage(const std::string& line)
 {
@@ -34,12 +34,12 @@ Message parseMessage(const std::string& line)
 	if (line.empty())
 		return msg;
 
-	/* ── 1. Prefixo opcional ─────────────────────────────────────────────── */
+	/* ── 1. Optional prefix ──────────────────────────────────────────────── */
 	if (line[pos] == ':')
 	{
 		std::size_t spacePos = line.find(' ', pos);
 		if (spacePos == std::string::npos)
-			return msg;                     /* linha malformada */
+			return msg;                     /* malformed line */
 		msg.prefix = line.substr(1, spacePos - 1);
 		pos = spacePos + 1;
 		while (pos < line.size() && line[pos] == ' ')
@@ -49,11 +49,11 @@ Message parseMessage(const std::string& line)
 	if (pos >= line.size())
 		return msg;
 
-	/* ── 2. Comando ──────────────────────────────────────────────────────── */
+	/* ── 2. Command ──────────────────────────────────────────────────────── */
 	std::size_t cmdEnd = line.find(' ', pos);
 	if (cmdEnd == std::string::npos)
 	{
-		/* Linha só tem o comando, sem parâmetros */
+		/* Line contains only the command, no parameters */
 		msg.command = line.substr(pos);
 		for (std::size_t i = 0; i < msg.command.size(); ++i)
 			msg.command[i] = static_cast<char>(
@@ -66,16 +66,16 @@ Message parseMessage(const std::string& line)
 			std::toupper(static_cast<unsigned char>(msg.command[i])));
 	pos = cmdEnd + 1;
 
-	/* ── 3. Parâmetros e trailing ────────────────────────────────────────── */
+	/* ── 3. Parameters and trailing ──────────────────────────────────────── */
 	while (pos < line.size())
 	{
-		/* Saltar espaços extra */
+		/* Skip extra spaces */
 		while (pos < line.size() && line[pos] == ' ')
 			++pos;
 		if (pos >= line.size())
 			break;
 
-		/* Se começa com ':' é o trailing (pode conter espaços) */
+		/* A ':' signals the trailing parameter (may contain spaces) */
 		if (line[pos] == ':')
 		{
 			msg.trailing    = line.substr(pos + 1);
@@ -83,7 +83,7 @@ Message parseMessage(const std::string& line)
 			break;
 		}
 
-		/* Parâmetro normal: vai até ao próximo espaço */
+		/* Normal parameter: runs until the next space */
 		std::size_t spacePos = line.find(' ', pos);
 		if (spacePos == std::string::npos)
 		{

@@ -1,11 +1,11 @@
 /*
-** ServerLoop.cpp — Loop de eventos principal (único poll()) e leitura/escrita.
+** ServerLoop.cpp — Main event loop (single poll()) and read/write handling.
 **
-** Regras do subject (obrigatórias):
-**   - Um único poll() para todo o I/O; todos os fds não-bloqueantes.
-**   - Sem fork(). Sem recv()/send() fora do fluxo do poll().
-**   - SIGPIPE ignorado (cliente fecha socket durante um send).
-**   - SIGINT (Ctrl+C) baixa _running para saída limpa.
+** Subject rules (mandatory):
+**   - A single poll() for all I/O; all fds non-blocking.
+**   - No fork(). No recv()/send() outside the poll() flow.
+**   - SIGPIPE ignored (client closes socket during a send).
+**   - SIGINT (Ctrl+C) clears _running for a clean exit.
 */
 
 #include "Server.hpp"
@@ -20,75 +20,75 @@
 
 /*
 ** Server::run
-** Ponto de entrada do servidor após a construção. Sequência:
-**   1. Configura sinais (SIGPIPE ignorado, SIGINT → requestStop)
-**   2. Cria o socket de escuta via setupSocket()
-**   3. Entra no loop poll() único enquanto _running for true
-**   4. Ao sair, imprime mensagem de shutdown (o destrutor limpa os recursos)
+** Entry point after construction. Sequence:
+**   1. Configure signals (SIGPIPE ignored, SIGINT → requestStop)
+**   2. Create the listening socket via setupSocket()
+**   3. Enter the single poll() loop while _running is true
+**   4. On exit, print shutdown message (destructor cleans up resources)
 **
-** O loop:
-**   - poll() com timeout de 1 s (para reagir ao SIGINT mesmo sem actividade)
+** The loop:
+**   - poll() with 1 s timeout (to react to SIGINT even with no activity)
 **   - fd[0] = listen socket: POLLIN → acceptNewClient()
-**   - fd[1..n] = clientes:   POLLIN → handleClientData(); POLLOUT → flushClientOutput()
+**   - fd[1..n] = clients:   POLLIN → handleClientData(); POLLOUT → flushClientOutput()
 **   - POLLERR/POLLHUP/POLLNVAL → disconnectClient()
 */
 void Server::run()
 {
-	/* Ignorar SIGPIPE: send() para socket fechado devolve -1, não mata o processo */
+	/* Ignore SIGPIPE: send() to a closed socket returns -1 instead of killing the process */
 	signal(SIGPIPE, SIG_IGN);
-	/* SIGINT (Ctrl+C): baixa a flag de forma segura */
+	/* SIGINT (Ctrl+C): clear the flag safely */
 	signal(SIGINT, reinterpret_cast<void (*)(int)>(&Server::requestStop));
 
 	setupSocket();
 
 	while (_running)
 	{
-		/* poll() com timeout de 1000 ms para não bloquear indefinidamente */
+		/* poll() with 1000 ms timeout to avoid blocking indefinitely */
 		int ready = poll(_pollFds.data(),
 		                 static_cast<nfds_t>(_pollFds.size()),
 		                 1000);
 
 		if (ready < 0)
 		{
-			if (errno == EINTR)     /* interrompido por sinal — verificar _running */
+			if (errno == EINTR)     /* interrupted by a signal — check _running */
 				continue;
 			std::cerr << "[!] poll() error\n";
 			break;
 		}
-		if (ready == 0)             /* timeout sem actividade */
+		if (ready == 0)             /* timeout with no activity */
 			continue;
 
-		/* ── 1. Socket de escuta: nova ligação ──────────────────────────── */
+		/* ── 1. Listening socket: new connection ────────────────────────── */
 		if (_pollFds[0].revents & POLLIN)
 			acceptNewClient();
 
-		/* ── 2. Sockets de clientes ─────────────────────────────────────── */
-		/* Nota: _pollFds pode crescer (acceptNewClient) ou encolher
-		   (disconnectClient). Por isso usamos índice em vez de iterator
-		   e não incrementamos i quando um elemento foi removido.         */
+		/* ── 2. Client sockets ──────────────────────────────────────────── */
+		/* Note: _pollFds may grow (acceptNewClient) or shrink
+		   (disconnectClient). Use an index instead of an iterator
+		   and do not increment i when an element was removed.          */
 		for (std::size_t i = 1; i < _pollFds.size(); )
 		{
 			int   fd      = _pollFds[i].fd;
 			short revents = _pollFds[i].revents;
 
-			/* Erro ou hang-up: desligar imediatamente */
+			/* Error or hang-up: disconnect immediately */
 			if (revents & (POLLERR | POLLHUP | POLLNVAL))
 			{
 				quitClient(fd, "connection error");
-				/* element removed — não incrementar i */
+				/* element removed — do not increment i */
 				continue;
 			}
 
-			/* Dados disponíveis para ler */
+			/* Data available to read */
 			if (revents & POLLIN)
 			{
 				handleClientData(fd);
-				/* handleClientData pode chamar quitClient/disconnectClient */
+				/* handleClientData may have called quitClient/disconnectClient */
 				if (!getClientByFd(fd))
-					continue;           /* elemento removido */
+					continue;           /* element removed */
 			}
 
-			/* Socket pronto para escrever (buffer de saída pendente) */
+			/* Socket ready to write (pending output buffer) */
 			if ((revents & POLLOUT) && getClientByFd(fd))
 			{
 				flushClientOutput(fd);
@@ -105,14 +105,14 @@ void Server::run()
 
 /*
 ** Server::handleClientData
-** Lê bytes do socket do cliente com recv(), acrescenta ao buffer de entrada
-** e processa todas as linhas completas ("\r\n") que ficaram disponíveis.
-** Cada linha é parseada em Message e entregue ao CommandHandler::dispatch().
+** Reads bytes from the client socket with recv(), appends them to the input
+** buffer and processes every complete line ("\r\n") that becomes available.
+** Each line is parsed into a Message and delivered to CommandHandler::dispatch().
 **
-** Se recv() devolver 0 → cliente fechou a ligação → quitClient().
-** Se recv() devolver <0 e errno != EAGAIN → erro → quitClient().
+** If recv() returns 0 → client closed the connection → quitClient().
+** If recv() returns <0 and errno != EAGAIN → error → quitClient().
 **
-** Recebe: fd do socket do cliente.
+** Receives: the client socket fd.
 */
 void Server::handleClientData(int fd)
 {
@@ -125,13 +125,13 @@ void Server::handleClientData(int fd)
 
 	if (n == 0)
 	{
-		/* Cliente fechou a ligação de forma limpa */
+		/* Client closed the connection cleanly */
 		quitClient(fd, "connection closed");
 		return;
 	}
 	if (n < 0)
 	{
-		/* EAGAIN/EWOULDBLOCK: sem dados por agora, não é erro fatal */
+		/* EAGAIN/EWOULDBLOCK: no data right now, not a fatal error */
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
 			return;
 		quitClient(fd, "read error");
@@ -140,7 +140,7 @@ void Server::handleClientData(int fd)
 
 	client->appendToInBuffer(std::string(buf, static_cast<std::size_t>(n)));
 
-	/* Processar todas as linhas completas acumuladas no buffer */
+	/* Process all complete lines accumulated in the buffer */
 	std::string line;
 	while (client->extractMessage(line))
 	{
@@ -150,7 +150,7 @@ void Server::handleClientData(int fd)
 
 		_commands.dispatch(*client, msg);
 
-		/* dispatch() pode ter desligado este cliente (ex: QUIT) */
+		/* dispatch() may have disconnected this client (e.g. QUIT) */
 		if (!getClientByFd(fd))
 			return;
 	}
@@ -158,19 +158,19 @@ void Server::handleClientData(int fd)
 
 /*
 ** Server::flushClientOutput
-** Envia o máximo possível do buffer de saída do cliente usando send().
-** send() não-bloqueante pode enviar apenas parte dos dados; o resto fica
-** no buffer para a próxima activação de POLLOUT.
-** Quando o buffer esvazia, desactiva POLLOUT para este fd.
+** Sends as much of the client's output buffer as possible using send().
+** Non-blocking send() may send only part of the data; the rest stays in the
+** buffer for the next POLLOUT activation.
+** When the buffer empties, POLLOUT is disabled for this fd.
 **
-** Recebe: fd do socket do cliente.
+** Receives: the client socket fd.
 */
 void Server::flushClientOutput(int fd)
 {
 	Client* client = getClientByFd(fd);
 	if (!client || !client->hasPendingOutput())
 	{
-		/* Não há nada para enviar: desactivar POLLOUT */
+		/* Nothing to send: disable POLLOUT */
 		for (std::size_t i = 0; i < _pollFds.size(); ++i)
 		{
 			if (_pollFds[i].fd == fd)
@@ -188,14 +188,14 @@ void Server::flushClientOutput(int fd)
 	if (sent < 0)
 	{
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
-			return;                     /* tentar de novo na próxima iteração */
+			return;                     /* retry on next iteration */
 		quitClient(fd, "write error");
 		return;
 	}
 
 	client->consumeOutBuffer(static_cast<std::size_t>(sent));
 
-	/* Se o buffer ficou vazio, desligar POLLOUT */
+	/* If the buffer is now empty, disable POLLOUT */
 	if (!client->hasPendingOutput())
 	{
 		for (std::size_t i = 0; i < _pollFds.size(); ++i)

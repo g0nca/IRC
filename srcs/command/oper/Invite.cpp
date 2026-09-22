@@ -1,9 +1,9 @@
 /*
-** Invite.cpp — Handler do comando INVITE.
+** Invite.cpp — Handler for the INVITE command.
 **
 ** INVITE <nick> <channel>
-** Convida um utilizador para um canal. Relevante com modo +i (invite-only).
-** Apenas operadores podem convidar quando o canal é +i.
+** Invites a user to a channel. Relevant with mode +i (invite-only).
+** Only operators may invite when the channel is +i.
 */
 
 #include "CommandHandler.hpp"
@@ -14,20 +14,20 @@
 
 /*
 ** CommandHandler::handleInvite
-** Convida 'nick' para 'channel'.
+** Invites 'nick' to 'channel'.
 **
-** Recebe: client — quem enviou INVITE (deve estar no canal).
-**         msg    — params[0]=nick a convidar, params[1]=canal.
+** Receives: client — who sent INVITE (must be in the channel).
+**           msg    — params[0]=nick to invite, params[1]=channel.
 **
-** Respostas possíveis:
-**   461 ERR_NEEDMOREPARAMS    — faltam parâmetros
-**   401 ERR_NOSUCHNICK        — nick não existe
-**   403 ERR_NOSUCHCHANNEL    — canal não existe
-**   442 ERR_NOTONCHANNEL     — o executor não está no canal
-**   482 ERR_CHANOPRIVSNEEDED — canal +i e não é operador
-**   443 ERR_USERONCHANNEL    — o convidado já está no canal
-**   341 RPL_INVITING         — ao executor (confirmação)
-**   INVITE privado            — ao convidado
+** Possible replies:
+**   461 ERR_NEEDMOREPARAMS    — missing parameters
+**   401 ERR_NOSUCHNICK        — nick does not exist
+**   403 ERR_NOSUCHCHANNEL    — channel does not exist
+**   442 ERR_NOTONCHANNEL     — the inviter is not in the channel
+**   482 ERR_CHANOPRIVSNEEDED — channel is +i and inviter is not an operator
+**   443 ERR_USERONCHANNEL    — the invitee is already in the channel
+**   341 RPL_INVITING         — sent to the inviter (confirmation)
+**   INVITE private message    — sent to the invitee
 */
 void CommandHandler::handleInvite(Client& client, const Message& msg)
 {
@@ -45,7 +45,7 @@ void CommandHandler::handleInvite(Client& client, const Message& msg)
 	const std::string& chanName   = msg.params[1];
 	const std::string& nick       = client.getNickname();
 
-	/* Verificar que o destino existe */
+	/* Check that the target exists */
 	Client* target = _server.getClientByNick(targetNick);
 	if (!target)
 	{
@@ -60,21 +60,21 @@ void CommandHandler::handleInvite(Client& client, const Message& msg)
 		return;
 	}
 
-	/* Executor deve estar no canal */
+	/* Inviter must be in the channel */
 	if (!ch->isMember(client.getFd()))
 	{
 		_server.sendToClient(client.getFd(), ERR_NOTONCHANNEL(nick, chanName));
 		return;
 	}
 
-	/* Se +i, apenas operadores podem convidar */
+	/* If +i, only operators may invite */
 	if (ch->isInviteOnly() && !ch->isOperator(client.getFd()))
 	{
 		_server.sendToClient(client.getFd(), ERR_CHANOPRIVSNEEDED(nick, chanName));
 		return;
 	}
 
-	/* Já está no canal */
+	/* Already in the channel */
 	if (ch->isMember(target->getFd()))
 	{
 		_server.sendToClient(client.getFd(),
@@ -82,13 +82,13 @@ void CommandHandler::handleInvite(Client& client, const Message& msg)
 		return;
 	}
 
-	/* Registar o convite */
+	/* Record the invite */
 	ch->addInvite(target->getFd());
 
-	/* Confirmação ao executor */
+	/* Confirmation to the inviter */
 	_server.sendToClient(client.getFd(), RPL_INVITING(nick, targetNick, chanName));
 
-	/* Notificação ao convidado */
+	/* Notification to the invitee */
 	std::string inviteMsg = ":" + client.getPrefix()
 	                      + " INVITE " + targetNick + " " + chanName + "\r\n";
 	_server.sendToClient(target->getFd(), inviteMsg);

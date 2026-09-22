@@ -1,9 +1,9 @@
 /*
-** Part.cpp — Handler do comando PART.
+** Part.cpp — Handler for the PART command.
 **
 ** PART <channel>[,<channel>...] [:<reason>]
-** Faz o cliente sair de um ou mais canais. Difunde a saída a todos os
-** membros e destrói o canal se ficar vazio.
+** Makes the client leave one or more channels. Broadcasts the departure to
+** all members and destroys the channel if it becomes empty.
 */
 
 #include "CommandHandler.hpp"
@@ -17,16 +17,16 @@
 
 /*
 ** CommandHandler::handlePart
-** Processa PART para cada canal da lista separada por vírgulas.
+** Processes PART for each channel in the comma-separated list.
 **
-** Recebe: client — quem enviou PART.
-**         msg    — params[0]=lista de canais, trailing=razão (opcional).
+** Receives: client — who sent PART.
+**           msg    — params[0]=channel list, trailing=reason (optional).
 **
-** Respostas possíveis:
-**   461 ERR_NEEDMOREPARAMS — sem argumento
-**   403 ERR_NOSUCHCHANNEL  — canal não existe
-**   442 ERR_NOTONCHANNEL   — cliente não está no canal
-**   PART broadcast em caso de sucesso
+** Possible replies:
+**   461 ERR_NEEDMOREPARAMS — no argument
+**   403 ERR_NOSUCHCHANNEL  — channel does not exist
+**   442 ERR_NOTONCHANNEL   — client is not in the channel
+**   PART broadcast on success
 */
 void CommandHandler::handlePart(Client& client, const Message& msg)
 {
@@ -62,12 +62,12 @@ void CommandHandler::handlePart(Client& client, const Message& msg)
 			continue;
 		}
 
-		/* Broadcast PART a todos (incluindo quem sai, antes de remover) */
+		/* Broadcast PART to everyone (including the leaving member, before removing) */
 		std::string partMsg = ":" + client.getPrefix()
 		                    + " PART " + chanName + " :" + reason + "\r\n";
 		_server.broadcastToChannel(chanName, partMsg, -1);
 
-		/* Remover do canal e destruir se vazio */
+		/* Remove from channel and destroy it if now empty */
 		ch->removeMember(client.getFd());
 		_server.removeChannelIfEmpty(chanName);
 	}

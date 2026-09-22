@@ -1,10 +1,10 @@
 /*
-** Nick.cpp — Handler do comando NICK.
+** Nick.cpp — Handler for the NICK command.
 **
 ** NICK <nickname>
-** Define ou altera o nickname do cliente. Antes do registo é o segundo
-** passo do handshake (PASS → NICK → USER). Após o registo, muda o nick
-** e notifica todos os canais comuns.
+** Sets or changes the client's nickname. Before registration it is the second
+** step of the handshake (PASS → NICK → USER). After registration, it changes
+** the nick and notifies all shared channels.
 */
 
 #include "CommandHandler.hpp"
@@ -17,24 +17,24 @@
 
 /*
 ** CommandHandler::handleNick
-** Define ou altera o nickname.
+** Sets or changes the nickname.
 **
-** Recebe: client — quem enviou NICK.
-**         msg    — msg.params[0] deve conter o novo nickname.
+** Receives: client — who sent NICK.
+**           msg    — msg.params[0] must contain the new nickname.
 **
-** Respostas possíveis:
-**   431 ERR_NONICKNAMEGIVEN  — sem argumento
-**   432 ERR_ERRONEUSNICKNAME — nickname inválido (caracteres ilegais)
-**   433 ERR_NICKNAMEINUSE    — outro cliente já usa este nick
-**   broadcast NICK           — se já registado e nick aceite
-**   (nenhuma se pré-registo e tudo OK)
+** Possible replies:
+**   431 ERR_NONICKNAMEGIVEN  — no argument
+**   432 ERR_ERRONEUSNICKNAME — invalid nickname (illegal characters)
+**   433 ERR_NICKNAMEINUSE    — another client already uses this nick
+**   broadcast NICK           — if already registered and nick accepted
+**   (none if pre-registration and everything is OK)
 */
 void CommandHandler::handleNick(Client& client, const Message& msg)
 {
-	/* Nick placeholder enquanto não registado */
+	/* Nick placeholder while not yet registered */
 	std::string oldNick = client.getNickname().empty() ? "*" : client.getNickname();
 
-	/* Sem argumento */
+	/* No argument */
 	if (msg.params.empty())
 	{
 		_server.sendToClient(client.getFd(), ERR_NONICKNAMEGIVEN(oldNick));
@@ -43,7 +43,7 @@ void CommandHandler::handleNick(Client& client, const Message& msg)
 
 	const std::string& newNick = msg.params[0];
 
-	/* Validar formato */
+	/* Validate format */
 	if (!Utils::isValidNickname(newNick))
 	{
 		_server.sendToClient(client.getFd(),
@@ -51,7 +51,7 @@ void CommandHandler::handleNick(Client& client, const Message& msg)
 		return;
 	}
 
-	/* Verificar unicidade (case-sensitive conforme RFC 1459 client mode) */
+	/* Check uniqueness (case-sensitive as per RFC 1459 client mode) */
 	Client* existing = _server.getClientByNick(newNick);
 	if (existing && existing->getFd() != client.getFd())
 	{
@@ -60,17 +60,17 @@ void CommandHandler::handleNick(Client& client, const Message& msg)
 		return;
 	}
 
-	/* ── Já registado: mudança de nick em runtime ─────────────────────── */
+	/* ── Already registered: runtime nick change ──────────────────────── */
 	if (client.isRegistered())
 	{
 		std::string oldPrefix = client.getPrefix();
 		client.setNickname(newNick);
 
-		/* Notificar o próprio cliente */
+		/* Notify the client itself */
 		std::string nickMsg = ":" + oldPrefix + " NICK :" + newNick + "\r\n";
 		_server.sendToClient(client.getFd(), nickMsg);
 
-		/* Notificar todos os canais onde o cliente está (sem duplicados) */
+		/* Notify all channels the client is in (no duplicates) */
 		std::vector<std::string> chans = _server.getClientChannels(client.getFd());
 		for (std::size_t i = 0; i < chans.size(); ++i)
 			_server.broadcastToChannel(chans[i], nickMsg, client.getFd());
@@ -78,10 +78,10 @@ void CommandHandler::handleNick(Client& client, const Message& msg)
 		return;
 	}
 
-	/* ── Pré-registo: só guardar o nick ──────────────────────────────── */
+	/* ── Pre-registration: just store the nick ──────────────────────────── */
 	client.setNickname(newNick);
 
-	/* Verificar se o registo está completo agora */
+	/* Check if registration is now complete */
 	if (client.hasReceivedPass() && !client.getUsername().empty())
 	{
 		client.setRegistered(true);

@@ -1,9 +1,9 @@
 /*
-** Join.cpp — Handler do comando JOIN.
+** Join.cpp — Handler for the JOIN command.
 **
 ** JOIN <channel>[,<channel>...] [<key>[,<key>...]]
-** Faz o cliente entrar num ou mais canais. O primeiro a entrar torna-se
-** operador. Verifica os modos +i (invite-only), +k (key) e +l (limit).
+** Makes the client join one or more channels. The first member becomes an
+** operator. Checks modes +i (invite-only), +k (key) and +l (limit).
 */
 
 #include "CommandHandler.hpp"
@@ -17,10 +17,10 @@
 
 /*
 ** buildNamesList
-** Constrói a string de nomes para o reply 353 (NAMREPLY).
-** Operadores são prefixados com '@'.
-** Recebe: canal, servidor (para obter nicks).
-** Devolve: string "[@]nick [[@]nick ...]".
+** Builds the names string for the 353 reply (NAMREPLY).
+** Operators are prefixed with '@'.
+** Receives: channel, server (to look up nicks).
+** Returns: string "[@]nick [[@]nick ...]".
 */
 static std::string buildNamesList(Channel* ch, Server& server)
 {
@@ -43,18 +43,18 @@ static std::string buildNamesList(Channel* ch, Server& server)
 
 /*
 ** CommandHandler::handleJoin
-** Processa JOIN para cada canal da lista separada por vírgulas.
+** Processes JOIN for each channel in the comma-separated list.
 **
-** Recebe: client — quem enviou JOIN.
-**         msg    — params[0]=lista de canais, params[1]=lista de keys (opcional).
+** Receives: client — who sent JOIN.
+**           msg    — params[0]=channel list, params[1]=key list (optional).
 **
-** Respostas possíveis:
-**   461 ERR_NEEDMOREPARAMS — sem argumento
-**   403 ERR_NOSUCHCHANNEL  — nome de canal inválido
-**   473 ERR_INVITEONLYCHAN — canal +i e sem convite
-**   475 ERR_BADCHANNELKEY  — canal +k e key errada/ausente
-**   471 ERR_CHANNELISFULL  — canal +l e cheio
-**   JOIN broadcast + 353 + 366 em caso de sucesso
+** Possible replies:
+**   461 ERR_NEEDMOREPARAMS — no argument
+**   403 ERR_NOSUCHCHANNEL  — invalid channel name
+**   473 ERR_INVITEONLYCHAN — channel is +i and client was not invited
+**   475 ERR_BADCHANNELKEY  — channel is +k and key is wrong or missing
+**   471 ERR_CHANNELISFULL  — channel is +l and full
+**   JOIN broadcast + 353 + 366 on success
 */
 void CommandHandler::handleJoin(Client& client, const Message& msg)
 {
@@ -68,7 +68,7 @@ void CommandHandler::handleJoin(Client& client, const Message& msg)
 		return;
 	}
 
-	/* Dividir lista de canais e lista de keys por ',' */
+	/* Split channel list and key list by ',' */
 	std::vector<std::string> channels = Utils::split(msg.params[0], ',');
 	std::vector<std::string> keys;
 	if (msg.params.size() >= 2)
@@ -79,7 +79,7 @@ void CommandHandler::handleJoin(Client& client, const Message& msg)
 		const std::string& chanName = channels[i];
 		std::string        key      = (i < keys.size()) ? keys[i] : "";
 
-		/* Validar nome do canal */
+		/* Validate channel name */
 		if (!Utils::isValidChannelName(chanName))
 		{
 			_server.sendToClient(client.getFd(),
@@ -87,15 +87,15 @@ void CommandHandler::handleJoin(Client& client, const Message& msg)
 			continue;
 		}
 
-		/* Se já está no canal, ignorar */
+		/* Already a member: ignore */
 		Channel* ch = _server.getChannel(chanName);
 		if (ch && ch->isMember(client.getFd()))
 			continue;
 
-		/* O canal pode não existir ainda — verificar modos antes de criar */
+		/* Channel may not exist yet — check modes before creating it */
 		if (ch)
 		{
-			/* Modo +i: invite-only */
+			/* Mode +i: invite-only */
 			if (ch->isInviteOnly() && !ch->isInvited(client.getFd()))
 			{
 				_server.sendToClient(client.getFd(),
@@ -103,7 +103,7 @@ void CommandHandler::handleJoin(Client& client, const Message& msg)
 				continue;
 			}
 
-			/* Modo +k: key obrigatória */
+			/* Mode +k: key required */
 			if (ch->hasKey() && ch->getKey() != key)
 			{
 				_server.sendToClient(client.getFd(),
@@ -111,7 +111,7 @@ void CommandHandler::handleJoin(Client& client, const Message& msg)
 				continue;
 			}
 
-			/* Modo +l: limite de membros */
+			/* Mode +l: member limit */
 			if (ch->hasUserLimit() && ch->memberCount() >= ch->getUserLimit())
 			{
 				_server.sendToClient(client.getFd(),
@@ -120,24 +120,24 @@ void CommandHandler::handleJoin(Client& client, const Message& msg)
 			}
 		}
 
-		/* Criar o canal se não existia */
+		/* Create the channel if it did not exist */
 		ch = _server.getOrCreateChannel(chanName);
 		bool firstMember = ch->isEmpty();
 
 		ch->addMember(client.getFd());
 
-		/* Primeiro membro torna-se operador */
+		/* First member becomes operator */
 		if (firstMember)
 			ch->addOperator(client.getFd());
 
-		/* Remover da lista de convidados após entrar */
+		/* Remove from invite list after joining */
 		ch->removeInvite(client.getFd());
 
-		/* Broadcast JOIN a todos os membros (incluindo o novo) */
+		/* Broadcast JOIN to all members (including the new one) */
 		std::string joinMsg = ":" + client.getPrefix() + " JOIN " + chanName + "\r\n";
 		_server.broadcastToChannel(chanName, joinMsg, -1);
 
-		/* Enviar tópico ao novo membro */
+		/* Send the topic to the new member */
 		if (ch->hasTopic())
 			_server.sendToClient(client.getFd(),
 			                     RPL_TOPIC(client.getNickname(), chanName, ch->getTopic()));
@@ -145,7 +145,7 @@ void CommandHandler::handleJoin(Client& client, const Message& msg)
 			_server.sendToClient(client.getFd(),
 			                     RPL_NOTOPIC(client.getNickname(), chanName));
 
-		/* Enviar lista de nomes (353 + 366) */
+		/* Send the names list (353 + 366) */
 		std::string names = buildNamesList(ch, _server);
 		_server.sendToClient(client.getFd(),
 		                     RPL_NAMREPLY(client.getNickname(), chanName, names));

@@ -1,15 +1,15 @@
 /*
-** Mode.cpp — Handler do comando MODE.
+** Mode.cpp — Handler for the MODE command.
 **
 ** MODE <channel> [+/-modes [params...]]
-** Consulta ou altera os modos de um canal. Apenas operadores podem alterar.
+** Queries or changes the modes of a channel. Only operators may change modes.
 **
-** Modos obrigatórios pelo subject:
-**   +i / -i  invite-only      (sem parâmetro)
-**   +t / -t  topic restricted (sem parâmetro)
-**   +k <key> / -k  channel key (+k precisa de key)
+** Modes required by the subject:
+**   +i / -i  invite-only      (no parameter)
+**   +t / -t  topic restricted (no parameter)
+**   +k <key> / -k  channel key (+k requires a key)
 **   +o <nick> / -o <nick>   give/take operator
-**   +l <n> / -l  user limit  (+l precisa de número)
+**   +l <n> / -l  user limit  (+l requires a number)
 */
 
 #include "CommandHandler.hpp"
@@ -23,20 +23,20 @@
 
 /*
 ** CommandHandler::handleMode
-** Processa a string de modos e aplica cada um, consumindo parâmetros
-** conforme necessário. Difunde os modos realmente aplicados.
+** Parses the mode string and applies each mode, consuming parameters as needed.
+** Broadcasts the modes that were actually applied.
 **
-** Recebe: client — quem enviou MODE (deve ser operador para alterar).
-**         msg    — params[0]=canal, params[1]=modestring (opcional),
-**                  params[2..n]=parâmetros dos modos.
+** Receives: client — who sent MODE (must be an operator to change modes).
+**           msg    — params[0]=channel, params[1]=mode string (optional),
+**                    params[2..n]=mode parameters.
 **
-** Respostas possíveis:
-**   461 ERR_NEEDMOREPARAMS    — sem canal
-**   403 ERR_NOSUCHCHANNEL    — canal não existe
-**   482 ERR_CHANOPRIVSNEEDED — não é operador
-**   472 ERR_UNKNOWNMODE      — carácter de modo desconhecido
-**   324 RPL_CHANNELMODEIS    — consulta de modos (sem modestring)
-**   MODE broadcast           — modos aplicados com sucesso
+** Possible replies:
+**   461 ERR_NEEDMOREPARAMS    — no channel supplied
+**   403 ERR_NOSUCHCHANNEL    — channel does not exist
+**   482 ERR_CHANOPRIVSNEEDED — not an operator
+**   472 ERR_UNKNOWNMODE      — unknown mode character
+**   324 RPL_CHANNELMODEIS    — mode query (no mode string supplied)
+**   MODE broadcast           — modes applied successfully
 */
 void CommandHandler::handleMode(Client& client, const Message& msg)
 {
@@ -60,7 +60,7 @@ void CommandHandler::handleMode(Client& client, const Message& msg)
 		return;
 	}
 
-	/* ── Consulta: MODE #chan (sem modestring) ───────────────────────── */
+	/* ── Query: MODE #chan (no mode string) ──────────────────────────────── */
 	if (msg.params.size() == 1)
 	{
 		_server.sendToClient(client.getFd(),
@@ -68,7 +68,7 @@ void CommandHandler::handleMode(Client& client, const Message& msg)
 		return;
 	}
 
-	/* ── Alteração: requer privilégio de operador ────────────────────── */
+	/* ── Change: requires operator privilege ─────────────────────────────── */
 	if (!ch->isOperator(client.getFd()))
 	{
 		_server.sendToClient(client.getFd(), ERR_CHANOPRIVSNEEDED(nick, chanName));
@@ -77,12 +77,12 @@ void CommandHandler::handleMode(Client& client, const Message& msg)
 
 	const std::string& modeStr = msg.params[1];
 	bool        adding     = true;      /* '+' → true, '-' → false */
-	std::size_t paramIdx   = 2;         /* índice do próximo parâmetro a consumir */
+	std::size_t paramIdx   = 2;         /* index of the next parameter to consume */
 
-	/* Acumular modos e parâmetros aplicados para o broadcast */
+	/* Accumulate applied modes and parameters for the broadcast */
 	std::string appliedModes;
 	std::string appliedParams;
-	char        lastSign = 0;           /* último sinal emitido na string resultante */
+	char        lastSign = 0;           /* last sign emitted in the result string */
 
 	for (std::size_t i = 0; i < modeStr.size(); ++i)
 	{
@@ -96,24 +96,24 @@ void CommandHandler::handleMode(Client& client, const Message& msg)
 
 		switch (c)
 		{
-			/* ── +i / -i : invite-only ─────────────────────────────── */
+			/* ── +i / -i : invite-only ──────────────────────────────────── */
 			case 'i':
 				ch->setInviteOnly(adding);
 				applied = true;
 				break;
 
-			/* ── +t / -t : topic restricted ────────────────────────── */
+			/* ── +t / -t : topic restricted ─────────────────────────────── */
 			case 't':
 				ch->setTopicRestricted(adding);
 				applied = true;
 				break;
 
-			/* ── +k <key> / -k : channel key ───────────────────────── */
+			/* ── +k <key> / -k : channel key ────────────────────────────── */
 			case 'k':
 				if (adding)
 				{
 					if (paramIdx >= msg.params.size())
-						break;          /* sem key — ignorar */
+						break;          /* no key supplied — skip */
 					ch->setKey(msg.params[paramIdx]);
 					param = msg.params[paramIdx];
 					++paramIdx;
@@ -126,7 +126,7 @@ void CommandHandler::handleMode(Client& client, const Message& msg)
 				}
 				break;
 
-			/* ── +o <nick> / -o <nick> : operator ──────────────────── */
+			/* ── +o <nick> / -o <nick> : operator ───────────────────────── */
 			case 'o':
 			{
 				if (paramIdx >= msg.params.size())
@@ -135,7 +135,7 @@ void CommandHandler::handleMode(Client& client, const Message& msg)
 				++paramIdx;
 				Client* targetClient = _server.getClientByNick(targetNick);
 				if (!targetClient || !ch->isMember(targetClient->getFd()))
-					break;              /* nick não existe ou não está no canal */
+					break;              /* nick does not exist or is not in the channel */
 				if (adding)
 					ch->addOperator(targetClient->getFd());
 				else
@@ -145,7 +145,7 @@ void CommandHandler::handleMode(Client& client, const Message& msg)
 				break;
 			}
 
-			/* ── +l <n> / -l : user limit ──────────────────────────── */
+			/* ── +l <n> / -l : user limit ───────────────────────────────── */
 			case 'l':
 				if (adding)
 				{
@@ -168,13 +168,13 @@ void CommandHandler::handleMode(Client& client, const Message& msg)
 				break;
 
 			default:
-				/* Modo desconhecido */
+				/* Unknown mode */
 				_server.sendToClient(client.getFd(),
 				                     ERR_UNKNOWNMODE(nick, std::string(1, c)));
 				break;
 		}
 
-		/* Acrescentar à string de modos aplicados */
+		/* Append to the applied mode string */
 		if (applied)
 		{
 			char sign = adding ? '+' : '-';
@@ -193,7 +193,7 @@ void CommandHandler::handleMode(Client& client, const Message& msg)
 		}
 	}
 
-	/* Só difundir se algo foi realmente alterado */
+	/* Broadcast only if something was actually changed */
 	if (!appliedModes.empty())
 	{
 		std::string modeMsg = ":" + client.getPrefix()

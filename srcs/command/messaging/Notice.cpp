@@ -1,9 +1,9 @@
 /*
-** Notice.cpp — Handler do comando NOTICE.
+** Notice.cpp — Handler for the NOTICE command.
 **
 ** NOTICE <target> :<text>
-** Idêntico ao PRIVMSG mas NUNCA gera respostas de erro automáticas
-** (regra fundamental do protocolo IRC — evita loops entre bots).
+** Identical to PRIVMSG but NEVER generates automatic error replies
+** (a fundamental IRC protocol rule — prevents loops between bots).
 */
 
 #include "CommandHandler.hpp"
@@ -12,18 +12,18 @@
 
 /*
 ** CommandHandler::handleNotice
-** Encaminha 'text' para 'target' (canal ou nick) sem gerar erros.
-** Se o destino não existir, a mensagem é simplesmente descartada.
+** Forwards 'text' to 'target' (channel or nick) without generating errors.
+** If the target does not exist, the message is silently discarded.
 **
-** Recebe: client — quem enviou NOTICE.
-**         msg    — params[0]=target, trailing=texto.
+** Receives: client — who sent NOTICE.
+**           msg    — params[0]=target, trailing=text.
 */
 void CommandHandler::handleNotice(Client& client, const Message& msg)
 {
 	if (!client.isRegistered())
-		return;     /* sem resposta de erro antes do registo */
+		return;     /* no error reply before registration */
 
-	/* Sem destino ou sem texto: descarta silenciosamente */
+	/* No target or no text: discard silently */
 	if (msg.params.empty() || !msg.hasTrailing || msg.trailing.empty())
 		return;
 
@@ -33,19 +33,19 @@ void CommandHandler::handleNotice(Client& client, const Message& msg)
 	std::string fullMsg = ":" + client.getPrefix()
 	                    + " NOTICE " + target + " :" + text + "\r\n";
 
-	/* ── Canal ───────────────────────────────────────────────────────── */
+	/* ── Channel ─────────────────────────────────────────────────────────── */
 	if (!target.empty() && target[0] == '#')
 	{
 		Channel* ch = _server.getChannel(target);
 		if (!ch)
-			return;                         /* sem erro de protocolo */
+			return;                         /* no protocol error */
 		_server.broadcastToChannel(target, fullMsg, client.getFd());
 		return;
 	}
 
-	/* ── Nick ────────────────────────────────────────────────────────── */
+	/* ── Nick ────────────────────────────────────────────────────────────── */
 	Client* dest = _server.getClientByNick(target);
 	if (!dest)
-		return;                             /* sem erro de protocolo */
+		return;                             /* no protocol error */
 	_server.sendToClient(dest->getFd(), fullMsg);
 }

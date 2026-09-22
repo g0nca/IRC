@@ -1,8 +1,8 @@
 /*
-** Utils.cpp — Utilitários partilhados pelas camadas de rede e protocolo.
+** Utils.cpp — Shared utilities for the network and protocol layers.
 **
-** Funções puras (sem estado global). Implementam operações básicas que
-** o C++98 não fornece nativamente (to_string, trim, etc.).
+** Pure functions (no global state). Implement basic operations that
+** C++98 does not provide natively (to_string, trim, etc.).
 */
 
 #include "Utils.hpp"
@@ -11,10 +11,10 @@
 
 /*
 ** Utils::split
-** Divide a string 's' cada vez que encontra 'delimiter'.
-** Tokens vazios (delimitadores consecutivos) são descartados.
-** Recebe: string de entrada, carácter delimitador.
-** Devolve: vector com os tokens não-vazios.
+** Splits string 's' on every occurrence of 'delimiter'.
+** Empty tokens (consecutive delimiters) are discarded.
+** Receives: input string, delimiter character.
+** Returns: vector of non-empty tokens.
 */
 std::vector<std::string> Utils::split(const std::string& s, char delimiter)
 {
@@ -41,9 +41,9 @@ std::vector<std::string> Utils::split(const std::string& s, char delimiter)
 
 /*
 ** Utils::splitWhitespace
-** Divide a string em tokens separados por espaços e tabs (runs de whitespace).
-** Recebe: string de entrada.
-** Devolve: vector de tokens, sem strings vazias.
+** Splits the string on runs of spaces and tabs.
+** Receives: input string.
+** Returns: vector of tokens, no empty strings.
 */
 std::vector<std::string> Utils::splitWhitespace(const std::string& s)
 {
@@ -70,10 +70,10 @@ std::vector<std::string> Utils::splitWhitespace(const std::string& s)
 
 /*
 ** Utils::toString
-** Converte um int para a sua representação decimal em string.
-** Substitui std::to_string (indisponível em C++98).
-** Recebe: valor inteiro.
-** Devolve: string decimal do valor.
+** Converts an int to its decimal string representation.
+** Replaces std::to_string (unavailable in C++98).
+** Receives: integer value.
+** Returns: decimal string of the value.
 */
 std::string Utils::toString(int value)
 {
@@ -84,9 +84,9 @@ std::string Utils::toString(int value)
 
 /*
 ** Utils::trim
-** Remove espaços, tabs, '\r' e '\n' do início e fim da string.
-** Recebe: string de entrada.
-** Devolve: cópia sem whitespace nas extremidades.
+** Removes spaces, tabs, '\r' and '\n' from both ends of the string.
+** Receives: input string.
+** Returns: copy without leading/trailing whitespace.
 */
 std::string Utils::trim(const std::string& s)
 {
@@ -107,9 +107,9 @@ std::string Utils::trim(const std::string& s)
 
 /*
 ** Utils::toUpper
-** Devolve uma cópia ASCII-maiúscula da string.
-** Recebe: string de entrada.
-** Devolve: string com todos os caracteres em maiúsculas.
+** Returns an ASCII-uppercased copy of the string.
+** Receives: input string.
+** Returns: string with all characters in upper case.
 */
 std::string Utils::toUpper(const std::string& s)
 {
@@ -121,10 +121,10 @@ std::string Utils::toUpper(const std::string& s)
 
 /*
 ** Utils::isValidChannelName
-** Valida o nome de um canal IRC. Deve começar por '#' e não pode conter
-** espaços, vírgulas, o carácter nulo nem BEL (\a).
-** Recebe: nome do canal (com '#').
-** Devolve: true se o nome é válido, false caso contrário.
+** Validates an IRC channel name. Must start with '#' and must not contain
+** spaces, commas, the null character or BEL (\a).
+** Receives: channel name (including '#').
+** Returns: true if the name is valid, false otherwise.
 */
 bool Utils::isValidChannelName(const std::string& name)
 {
@@ -141,10 +141,10 @@ bool Utils::isValidChannelName(const std::string& name)
 
 /*
 ** Utils::isValidNickname
-** Valida um nickname IRC (RFC 1459): 1-9 caracteres; o primeiro deve ser
-** letra ou caracter especial (_-[]\\^{}|); os restantes podem incluir dígitos.
-** Recebe: nickname proposto.
-** Devolve: true se válido, false caso contrário.
+** Validates an IRC nickname (RFC 1459): 1-9 characters; the first must be
+** a letter or special character (_-[]\\^{}|); the rest may include digits.
+** Receives: proposed nickname.
+** Returns: true if valid, false otherwise.
 */
 bool Utils::isValidNickname(const std::string& nick)
 {
@@ -153,13 +153,13 @@ bool Utils::isValidNickname(const std::string& nick)
 	if (nick.empty() || nick.size() > 9)
 		return false;
 
-	/* primeiro carácter: letra ou special */
+	/* first character: letter or special */
 	char first = nick[0];
 	if (!std::isalpha(static_cast<unsigned char>(first)) &&
 	    special.find(first) == std::string::npos)
 		return false;
 
-	/* restantes: alfanumérico ou special */
+	/* remaining characters: alphanumeric or special */
 	for (std::size_t i = 1; i < nick.size(); ++i)
 	{
 		char c = nick[i];

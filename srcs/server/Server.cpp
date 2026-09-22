@@ -1,9 +1,9 @@
 /*
-** Server.cpp — Construtor, destrutor e métodos do contrato público do Server.
+** Server.cpp — Constructor, destructor and public contract methods of Server.
 **
-** O contrato é a superfície que o CommandHandler (Person B) usa para
-** interagir com a camada de rede sem tocar em sockets directamente.
-** A lógica de socket/poll está em ServerSocket.cpp e ServerLoop.cpp.
+** The contract is the surface that CommandHandler (Person B) uses to
+** interact with the network layer without touching sockets directly.
+** Socket/poll logic lives in ServerSocket.cpp and ServerLoop.cpp.
 */
 
 #include "Server.hpp"
@@ -11,18 +11,18 @@
 #include <iostream>
 #include <vector>
 
-/* Definição do membro estático (flag do SIGINT) */
+/* Static member definition (SIGINT flag) */
 bool Server::_running = true;
 
 /* ─── Constructor / Destructor ────────────────────────────────────────────── */
 
 /*
 ** Server(int port, const std::string& password)
-** Inicializa o servidor com a porta e password fornecidas.
-** O socket é criado em setupSocket(), chamado por run().
-** _commands é inicializado com *this (referência — válido porque CommandHandler
-** só guarda a referência, não a usa durante a sua própria construção).
-** Recebe: port (1–65535), password (não vazia).
+** Initialises the server with the given port and password.
+** The socket is created in setupSocket(), called by run().
+** _commands is initialised with *this (reference — safe because CommandHandler
+** only stores the reference and does not use it during its own construction).
+** Receives: port (1–65535), password (non-empty).
 */
 Server::Server(int port, const std::string& password)
 	: _listenFd(-1),
@@ -36,13 +36,13 @@ Server::Server(int port, const std::string& password)
 
 /*
 ** ~Server()
-** Destrói o servidor: fecha todos os fds dos clientes, apaga os objectos
-** Client* e Channel*, fecha o socket de escuta.
-** Não envia mensagens — o cleanup é silencioso.
+** Destroys the server: closes all client fds, deletes Client* and Channel*
+** objects, and closes the listening socket.
+** Does not send any messages — cleanup is silent.
 */
 Server::~Server()
 {
-	/* Fechar e apagar todos os clientes */
+	/* Close and delete all clients */
 	for (std::map<int, Client*>::iterator it = _clients.begin();
 	     it != _clients.end(); ++it)
 	{
@@ -51,13 +51,13 @@ Server::~Server()
 	}
 	_clients.clear();
 
-	/* Apagar todos os canais */
+	/* Delete all channels */
 	for (std::map<std::string, Channel*>::iterator it = _channels.begin();
 	     it != _channels.end(); ++it)
 		delete it->second;
 	_channels.clear();
 
-	/* Fechar o socket de escuta */
+	/* Close the listening socket */
 	if (_listenFd != -1)
 	{
 		close(_listenFd);
@@ -69,32 +69,32 @@ Server::~Server()
 
 /*
 ** requestStop
-** Chamado pelo handler de SIGINT. Baixa a flag _running para que o loop
-** principal saia de forma limpa na próxima iteração.
+** Called by the SIGINT handler. Clears the _running flag so the main loop
+** exits cleanly on the next iteration.
 */
 void Server::requestStop() { _running = false; }
 
 /*
 ** isRunning
-** Devolve: true enquanto o servidor não recebeu sinal de paragem.
+** Returns: true while the server has not received a stop signal.
 */
 bool Server::isRunning()   { return _running; }
 
-/* ─── Contract: getters de configuração ─────────────────────────────────────── */
+/* ─── Contract: configuration getters ───────────────────────────────────────── */
 
 /*
 ** getPassword
-** Devolve: referência constante à password que os clientes devem enviar via PASS.
+** Returns: const reference to the password clients must send via PASS.
 */
 const std::string& Server::getPassword() const { return _password; }
 
-/* ─── Contract: lookup de clientes ─────────────────────────────────────────── */
+/* ─── Contract: client lookup ───────────────────────────────────────────────── */
 
 /*
 ** getClientByFd
-** Procura um cliente pelo seu file descriptor.
-** Recebe: fd do socket do cliente.
-** Devolve: Client* se encontrado, NULL caso contrário.
+** Looks up a client by its file descriptor.
+** Receives: the client socket fd.
+** Returns: Client* if found, NULL otherwise.
 */
 Client* Server::getClientByFd(int fd)
 {
@@ -104,10 +104,10 @@ Client* Server::getClientByFd(int fd)
 
 /*
 ** getClientByNick
-** Procura um cliente pelo seu nickname (comparação case-sensitive, como
-** definido no RFC — o servidor não faz conversão).
-** Recebe: nickname a procurar.
-** Devolve: Client* se encontrado, NULL caso contrário.
+** Looks up a client by nickname (case-sensitive comparison as per the RFC —
+** the server performs no case folding).
+** Receives: nickname to search for.
+** Returns: Client* if found, NULL otherwise.
 */
 Client* Server::getClientByNick(const std::string& nick)
 {
@@ -120,13 +120,13 @@ Client* Server::getClientByNick(const std::string& nick)
 	return NULL;
 }
 
-/* ─── Contract: lookup de canais ───────────────────────────────────────────── */
+/* ─── Contract: channel lookup ──────────────────────────────────────────────── */
 
 /*
 ** getChannel
-** Procura um canal pelo nome (case-sensitive).
-** Recebe: nome do canal (com '#').
-** Devolve: Channel* se existir, NULL caso contrário.
+** Looks up a channel by name (case-sensitive).
+** Receives: channel name (including '#').
+** Returns: Channel* if it exists, NULL otherwise.
 */
 Channel* Server::getChannel(const std::string& name)
 {
@@ -136,9 +136,10 @@ Channel* Server::getChannel(const std::string& name)
 
 /*
 ** getOrCreateChannel
-** Devolve o canal com o nome dado. Se não existir, cria-o e regista-o.
-** Recebe: nome do canal (deve ser válido).
-** Devolve: ponteiro para o Channel (nunca NULL).
+** Returns the channel with the given name. Creates and registers it if it
+** does not exist yet.
+** Receives: channel name (must be valid).
+** Returns: pointer to the Channel (never NULL).
 */
 Channel* Server::getOrCreateChannel(const std::string& name)
 {
@@ -153,8 +154,8 @@ Channel* Server::getOrCreateChannel(const std::string& name)
 
 /*
 ** removeChannelIfEmpty
-** Apaga o canal se não tiver membros. Chama-se após cada PART/KICK/QUIT.
-** Recebe: nome do canal.
+** Deletes the channel if it has no members. Called after every PART/KICK/QUIT.
+** Receives: channel name.
 */
 void Server::removeChannelIfEmpty(const std::string& name)
 {
@@ -166,13 +167,13 @@ void Server::removeChannelIfEmpty(const std::string& name)
 	}
 }
 
-/* ─── Contract: envio de mensagens ─────────────────────────────────────────── */
+/* ─── Contract: message sending ─────────────────────────────────────────────── */
 
 /*
 ** sendToClient
-** Enfileira uma mensagem no buffer de saída do cliente e activa POLLOUT
-** para que o servidor a envie assim que o socket estiver pronto.
-** Recebe: fd do destinatário, string da mensagem (deve terminar em "\r\n").
+** Queues a message in the client's output buffer and enables POLLOUT so
+** the server sends it as soon as the socket is ready.
+** Receives: recipient fd, message string (must end with "\r\n").
 */
 void Server::sendToClient(int fd, const std::string& message)
 {
@@ -182,7 +183,7 @@ void Server::sendToClient(int fd, const std::string& message)
 
 	c->appendToOutBuffer(message);
 
-	/* Activar POLLOUT para este fd */
+	/* Enable POLLOUT for this fd */
 	for (std::size_t i = 0; i < _pollFds.size(); ++i)
 	{
 		if (_pollFds[i].fd == fd)
@@ -195,9 +196,9 @@ void Server::sendToClient(int fd, const std::string& message)
 
 /*
 ** broadcastToChannel
-** Envia 'message' a todos os membros do canal, excepto ao fd indicado
-** em 'exceptFd' (passar -1 para enviar a todos).
-** Recebe: nome do canal, mensagem, fd a excluir (-1 = ninguém excluído).
+** Sends 'message' to every member of the channel except the fd given in
+** 'exceptFd' (pass -1 to send to everyone).
+** Receives: channel name, message, fd to exclude (-1 = exclude nobody).
 */
 void Server::broadcastToChannel(const std::string& channel,
                                 const std::string& message,
@@ -216,14 +217,14 @@ void Server::broadcastToChannel(const std::string& channel,
 	}
 }
 
-/* ─── Contract: desconexão ──────────────────────────────────────────────────── */
+/* ─── Contract: disconnection ───────────────────────────────────────────────── */
 
 /*
 ** disconnectClient
-** Remove o cliente de todos os canais, fecha o fd, remove-o do poll(),
-** elimina-o do registo e liberta a memória.
-** NÃO envia notificações — use quitClient() para isso.
-** Recebe: fd do cliente a desligar.
+** Removes the client from all channels, closes the fd, removes it from poll(),
+** unregisters it and frees its memory.
+** Does NOT send notifications — use quitClient() for that.
+** Receives: fd of the client to disconnect.
 */
 void Server::disconnectClient(int fd)
 {
@@ -231,7 +232,7 @@ void Server::disconnectClient(int fd)
 	if (!c)
 		return;
 
-	/* Remover dos canais; destruir canais vazios */
+	/* Remove from channels; destroy empty channels */
 	for (std::map<std::string, Channel*>::iterator it = _channels.begin();
 	     it != _channels.end(); )
 	{
@@ -261,9 +262,9 @@ void Server::disconnectClient(int fd)
 
 /*
 ** quitClient
-** Notifica os canais comuns com uma mensagem QUIT, depois chama
-** disconnectClient(). Usado pelo handler QUIT e pelo recv()==0.
-** Recebe: fd do cliente, razão do QUIT.
+** Notifies shared channels with a QUIT message, then calls disconnectClient().
+** Used by the QUIT handler and by handleClientData when recv() returns 0.
+** Receives: client fd, quit reason.
 */
 void Server::quitClient(int fd, const std::string& reason)
 {
@@ -271,7 +272,7 @@ void Server::quitClient(int fd, const std::string& reason)
 	if (!c)
 		return;
 
-	/* Só envia QUIT se o cliente já estava registado (tem nick) */
+	/* Only broadcast QUIT if the client was already registered (has a nick) */
 	if (c->isRegistered())
 	{
 		std::string quitMsg = ":" + c->getPrefix() + " QUIT :" + reason + "\r\n";
@@ -289,10 +290,10 @@ void Server::quitClient(int fd, const std::string& reason)
 
 /*
 ** getClientChannels
-** Devolve os nomes de todos os canais onde o fd está actualmente como membro.
-** Usado pelo handler NICK (para broadcast de mudança de nick) e pelo QUIT.
-** Recebe: fd do cliente.
-** Devolve: vector de nomes de canal.
+** Returns the names of every channel where the given fd is currently a member.
+** Used by the NICK handler (for nick-change broadcasts) and by QUIT.
+** Receives: client fd.
+** Returns: vector of channel names.
 */
 std::vector<std::string> Server::getClientChannels(int fd) const
 {

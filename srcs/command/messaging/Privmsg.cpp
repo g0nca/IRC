@@ -1,9 +1,9 @@
 /*
-** Privmsg.cpp — Handler do comando PRIVMSG.
+** Privmsg.cpp — Handler for the PRIVMSG command.
 **
 ** PRIVMSG <target> :<text>
-** Envia uma mensagem a um nick ou a um canal. Gera erros se o destino
-** não existir ou se a mensagem/destino estiverem ausentes.
+** Sends a message to a nick or a channel. Produces errors if the target
+** does not exist or if the message or target is missing.
 */
 
 #include "CommandHandler.hpp"
@@ -13,16 +13,16 @@
 
 /*
 ** CommandHandler::handlePrivmsg
-** Encaminha 'text' para 'target' (canal ou nick).
+** Forwards 'text' to 'target' (channel or nick).
 **
-** Recebe: client — quem enviou PRIVMSG.
-**         msg    — params[0]=target, trailing=texto.
+** Receives: client — who sent PRIVMSG.
+**           msg    — params[0]=target, trailing=text.
 **
-** Respostas possíveis:
-**   411 ERR_NORECIPIENT   — sem destino
-**   412 ERR_NOTEXTTOSEND  — sem texto
-**   401 ERR_NOSUCHNICK    — nick não encontrado
-**   403 ERR_NOSUCHCHANNEL — canal não encontrado
+** Possible replies:
+**   411 ERR_NORECIPIENT   — no target
+**   412 ERR_NOTEXTTOSEND  — no text
+**   401 ERR_NOSUCHNICK    — nick not found
+**   403 ERR_NOSUCHCHANNEL — channel not found
 */
 void CommandHandler::handlePrivmsg(Client& client, const Message& msg)
 {
@@ -31,14 +31,14 @@ void CommandHandler::handlePrivmsg(Client& client, const Message& msg)
 
 	const std::string& nick = client.getNickname();
 
-	/* Sem destino */
+	/* No target */
 	if (msg.params.empty())
 	{
 		_server.sendToClient(client.getFd(), ERR_NORECIPIENT(nick, "PRIVMSG"));
 		return;
 	}
 
-	/* Sem texto */
+	/* No text */
 	if (!msg.hasTrailing || msg.trailing.empty())
 	{
 		_server.sendToClient(client.getFd(), ERR_NOTEXTTOSEND(nick));
@@ -51,7 +51,7 @@ void CommandHandler::handlePrivmsg(Client& client, const Message& msg)
 	std::string fullMsg = ":" + client.getPrefix()
 	                    + " PRIVMSG " + target + " :" + text + "\r\n";
 
-	/* ── Canal ───────────────────────────────────────────────────────── */
+	/* ── Channel ─────────────────────────────────────────────────────────── */
 	if (!target.empty() && target[0] == '#')
 	{
 		Channel* ch = _server.getChannel(target);
@@ -60,12 +60,12 @@ void CommandHandler::handlePrivmsg(Client& client, const Message& msg)
 			_server.sendToClient(client.getFd(), ERR_NOSUCHCHANNEL(nick, target));
 			return;
 		}
-		/* Enviar a todos os membros menos ao remetente */
+		/* Send to all members except the sender */
 		_server.broadcastToChannel(target, fullMsg, client.getFd());
 		return;
 	}
 
-	/* ── Nick ────────────────────────────────────────────────────────── */
+	/* ── Nick ────────────────────────────────────────────────────────────── */
 	Client* dest = _server.getClientByNick(target);
 	if (!dest)
 	{

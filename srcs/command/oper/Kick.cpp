@@ -1,8 +1,8 @@
 /*
-** Kick.cpp — Handler do comando KICK.
+** Kick.cpp — Handler for the KICK command.
 **
 ** KICK <channel> <nick> [:<reason>]
-** Expulsa 'nick' do canal. Apenas operadores podem usar este comando.
+** Removes 'nick' from the channel. Only operators may use this command.
 */
 
 #include "CommandHandler.hpp"
@@ -13,20 +13,20 @@
 
 /*
 ** CommandHandler::handleKick
-** Expulsa um utilizador do canal.
+** Kicks a user from the channel.
 **
-** Recebe: client — quem enviou KICK (deve ser operador).
-**         msg    — params[0]=canal, params[1]=nick a expulsar,
-**                  trailing=razão (opcional).
+** Receives: client — who sent KICK (must be an operator).
+**           msg    — params[0]=channel, params[1]=nick to kick,
+**                    trailing=reason (optional).
 **
-** Respostas possíveis:
-**   461 ERR_NEEDMOREPARAMS    — faltam parâmetros
-**   403 ERR_NOSUCHCHANNEL    — canal não existe
-**   442 ERR_NOTONCHANNEL     — o executor não está no canal
-**   482 ERR_CHANOPRIVSNEEDED — não é operador
-**   401 ERR_NOSUCHNICK       — nick não existe no servidor
-**   441 ERR_USERNOTINCHANNEL — nick não está no canal
-**   KICK broadcast em caso de sucesso
+** Possible replies:
+**   461 ERR_NEEDMOREPARAMS    — missing parameters
+**   403 ERR_NOSUCHCHANNEL    — channel does not exist
+**   442 ERR_NOTONCHANNEL     — the kicker is not in the channel
+**   482 ERR_CHANOPRIVSNEEDED — not an operator
+**   401 ERR_NOSUCHNICK       — nick does not exist on the server
+**   441 ERR_USERNOTINCHANNEL — nick is not in the channel
+**   KICK broadcast on success
 */
 void CommandHandler::handleKick(Client& client, const Message& msg)
 {
@@ -78,7 +78,7 @@ void CommandHandler::handleKick(Client& client, const Message& msg)
 		return;
 	}
 
-	/* Broadcast KICK antes de remover */
+	/* Broadcast KICK before removing the member */
 	std::string kickMsg = ":" + client.getPrefix()
 	                    + " KICK " + chanName + " " + targetNick + " :" + reason + "\r\n";
 	_server.broadcastToChannel(chanName, kickMsg, -1);

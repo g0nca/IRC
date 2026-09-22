@@ -1,8 +1,8 @@
 /*
-** ServerSocket.cpp — Criação do socket de escuta e gestão do array poll().
+** ServerSocket.cpp — Listening socket creation and poll() array management.
 **
-** Toda a interacção com sockets a nível de sistema (socket, bind, listen,
-** accept, fcntl) está aqui. A lógica do loop de eventos está em ServerLoop.cpp.
+** All system-level socket interaction (socket, bind, listen, accept, fcntl)
+** lives here. Event-loop logic is in ServerLoop.cpp.
 */
 
 #include "Server.hpp"
@@ -16,23 +16,23 @@
 
 /*
 ** Server::setupSocket
-** Cria o socket de escuta TCP e prepara-o para aceitar conexões:
-**   1. socket()       — cria o fd
-**   2. setsockopt()   — SO_REUSEADDR (evita "Address already in use" no restart)
-**   3. bind()         — associa à porta pedida em todas as interfaces
-**   4. listen()       — coloca o socket em modo de escuta
-**   5. fcntl(O_NONBLOCK) — torna o fd não-bloqueante
-**   6. addToPoll()    — regista no array do poll() para POLLIN
-** Lança std::runtime_error em qualquer falha do sistema.
+** Creates the TCP listening socket and prepares it to accept connections:
+**   1. socket()       — create the fd
+**   2. setsockopt()   — SO_REUSEADDR (avoids "Address already in use" on restart)
+**   3. bind()         — bind to the requested port on all interfaces
+**   4. listen()       — put the socket in listening mode
+**   5. fcntl(O_NONBLOCK) — make the fd non-blocking
+**   6. addToPoll()    — register in the poll() array for POLLIN
+** Throws std::runtime_error on any system call failure.
 */
 void Server::setupSocket()
 {
-	/* 1. Criar socket TCP */
+	/* 1. Create TCP socket */
 	_listenFd = socket(AF_INET, SOCK_STREAM, 0);
 	if (_listenFd < 0)
 		throw std::runtime_error("socket() failed");
 
-	/* 2. Reutilização do endereço (para restart imediato) */
+	/* 2. Allow immediate address reuse (for instant restart) */
 	int opt = 1;
 	if (setsockopt(_listenFd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
 	{
@@ -40,7 +40,7 @@ void Server::setupSocket()
 		throw std::runtime_error("setsockopt(SO_REUSEADDR) failed");
 	}
 
-	/* 3. Bind à porta pedida em todas as interfaces */
+	/* 3. Bind to the requested port on all interfaces */
 	struct sockaddr_in addr;
 	std::memset(&addr, 0, sizeof(addr));
 	addr.sin_family      = AF_INET;
@@ -53,21 +53,21 @@ void Server::setupSocket()
 		throw std::runtime_error("bind() failed");
 	}
 
-	/* 4. Começar a escutar (backlog = 128) */
+	/* 4. Start listening (backlog = 128) */
 	if (listen(_listenFd, 128) < 0)
 	{
 		close(_listenFd);
 		throw std::runtime_error("listen() failed");
 	}
 
-	/* 5. Modo não-bloqueante */
+	/* 5. Non-blocking mode */
 	if (fcntl(_listenFd, F_SETFL, O_NONBLOCK) < 0)
 	{
 		close(_listenFd);
 		throw std::runtime_error("fcntl(O_NONBLOCK) failed on listen socket");
 	}
 
-	/* 6. Registar no poll() para novas ligações */
+	/* 6. Register in poll() for new connections */
 	addToPoll(_listenFd, POLLIN);
 
 	std::cout << "[*] listening on port " << _port << " (fd=" << _listenFd << ")\n";
@@ -75,12 +75,12 @@ void Server::setupSocket()
 
 /*
 ** Server::acceptNewClient
-** Aceita uma nova ligação TCP no socket de escuta:
-**   1. accept()       — cria o fd do cliente
-**   2. fcntl(O_NONBLOCK) — torna-o não-bloqueante
-**   3. Cria Client*   — regista nome de host pela addr do peer
-**   4. addToPoll()    — passa a vigiar POLLIN para dados do cliente
-** Chamada quando _pollFds[0] (o listen fd) tem POLLIN.
+** Accepts a new TCP connection on the listening socket:
+**   1. accept()       — create the client fd
+**   2. fcntl(O_NONBLOCK) — make it non-blocking
+**   3. Create Client* — record the peer hostname from the address
+**   4. addToPoll()    — start watching POLLIN for client data
+** Called when _pollFds[0] (the listen fd) has POLLIN.
 */
 void Server::acceptNewClient()
 {
@@ -93,14 +93,14 @@ void Server::acceptNewClient()
 	if (clientFd < 0)
 		return;                             /* EAGAIN / EWOULDBLOCK — OK */
 
-	/* Modo não-bloqueante para o fd do cliente */
+	/* Non-blocking mode for the client fd */
 	if (fcntl(clientFd, F_SETFL, O_NONBLOCK) < 0)
 	{
 		close(clientFd);
 		return;
 	}
 
-	/* Criar o objecto Client e registar */
+	/* Create the Client object and register it */
 	Client* newClient = new Client(clientFd);
 	newClient->setHostname(inet_ntoa(clientAddr.sin_addr));
 	_clients[clientFd] = newClient;
@@ -112,8 +112,8 @@ void Server::acceptNewClient()
 
 /*
 ** Server::addToPoll
-** Adiciona um fd ao array _pollFds que o poll() vigia.
-** Recebe: fd a adicionar, máscara de eventos a vigiar (ex: POLLIN, POLLIN|POLLOUT).
+** Adds an fd to the _pollFds array watched by poll().
+** Receives: fd to add, event mask to watch (e.g. POLLIN, POLLIN|POLLOUT).
 */
 void Server::addToPoll(int fd, short events)
 {
@@ -126,9 +126,9 @@ void Server::addToPoll(int fd, short events)
 
 /*
 ** Server::removeFromPoll
-** Remove um fd do array _pollFds. Usa a técnica swap-and-pop para O(n)
-** sem realocar (a ordem não importa para o poll()).
-** Recebe: fd a remover.
+** Removes an fd from the _pollFds array. Uses swap-and-pop for O(n)
+** without reallocation (order does not matter for poll()).
+** Receives: fd to remove.
 */
 void Server::removeFromPoll(int fd)
 {
@@ -136,7 +136,7 @@ void Server::removeFromPoll(int fd)
 	{
 		if (_pollFds[i].fd == fd)
 		{
-			/* Substituir pelo último elemento e encolher o vector */
+			/* Replace with the last element and shrink the vector */
 			_pollFds[i] = _pollFds.back();
 			_pollFds.pop_back();
 			return;

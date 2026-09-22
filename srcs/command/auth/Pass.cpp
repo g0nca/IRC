@@ -1,9 +1,9 @@
 /*
-** Pass.cpp — Handler do comando PASS.
+** Pass.cpp — Handler for the PASS command.
 **
 ** PASS <password>
-** Deve ser o primeiro comando enviado pelo cliente. Define se a password
-** está correcta; sem PASS válido o registo não pode completar-se.
+** Must be the first command sent by the client. Sets whether the password
+** is correct; without a valid PASS the registration cannot complete.
 */
 
 #include "CommandHandler.hpp"
@@ -13,21 +13,21 @@
 
 /*
 ** CommandHandler::handlePass
-** Valida a password fornecida contra a do servidor.
-** Só pode ser chamado antes do registo estar completo.
+** Validates the supplied password against the server password.
+** Can only be called before registration is complete.
 **
-** Recebe: client — quem enviou PASS.
-**         msg    — msg.params[0] deve conter a password.
+** Receives: client — who sent PASS.
+**           msg    — msg.params[0] must contain the password.
 **
-** Respostas possíveis:
-**   462 ERR_ALREADYREGISTERED — já está registado
-**   461 ERR_NEEDMOREPARAMS    — sem argumento
-**   464 ERR_PASSWDMISMATCH    — password errada
-**   (nenhuma, em caso de sucesso — o flag é guardado internamente)
+** Possible replies:
+**   462 ERR_ALREADYREGISTERED — already registered
+**   461 ERR_NEEDMOREPARAMS    — no argument supplied
+**   464 ERR_PASSWDMISMATCH    — wrong password
+**   (none on success — the flag is stored internally)
 */
 void CommandHandler::handlePass(Client& client, const Message& msg)
 {
-	/* Já registado: não pode re-registar */
+	/* Already registered: cannot re-register */
 	if (client.isRegistered())
 	{
 		_server.sendToClient(client.getFd(),
@@ -35,7 +35,7 @@ void CommandHandler::handlePass(Client& client, const Message& msg)
 		return;
 	}
 
-	/* Sem argumento */
+	/* No argument */
 	if (msg.params.empty())
 	{
 		std::string nick = client.getNickname().empty() ? "*" : client.getNickname();
@@ -43,7 +43,7 @@ void CommandHandler::handlePass(Client& client, const Message& msg)
 		return;
 	}
 
-	/* Verificar a password */
+	/* Check the password */
 	if (msg.params[0] != _server.getPassword())
 	{
 		std::string nick = client.getNickname().empty() ? "*" : client.getNickname();
@@ -51,6 +51,6 @@ void CommandHandler::handlePass(Client& client, const Message& msg)
 		return;
 	}
 
-	/* Password correcta: marcar o flag */
+	/* Correct password: set the flag */
 	client.setPassReceived(true);
 }
