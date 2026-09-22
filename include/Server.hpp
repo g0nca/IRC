@@ -88,6 +88,20 @@ class Server
 		 *        fd, drop it from poll() and free the object.
 		 */
 		void disconnectClient(int fd);
+
+		/**
+		 * @brief Broadcast a QUIT message to all channels the client is in,
+		 *        then call disconnectClient(). Used by QUIT handler and by
+		 *        handleClientData when recv() returns 0.
+		 * @param reason the quit reason shown to other users.
+		 */
+		void quitClient(int fd, const std::string& reason);
+
+		/**
+		 * @brief Returns the names of every channel the given fd is currently in.
+		 *        Used by NICK change and QUIT broadcasts.
+		 */
+		std::vector<std::string> getClientChannels(int fd) const;
 		// ===============================================================================
 
 	private:

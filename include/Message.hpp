@@ -41,4 +41,14 @@ struct Message
 	Message() : prefix(), command(), params(), trailing(), hasTrailing(false) {}
 };
 
+/**
+ * @brief Parse one raw IRC line (without its terminating "\r\n") into a Message.
+ *
+ * Wire format:  [":" prefix SP] command [SP params] [SP ":" trailing]
+ *
+ * @param line the raw input line, already stripped of "\r\n".
+ * @return the populated Message struct; command is upper-cased.
+ */
+Message parseMessage(const std::string& line);
+
 #endif // MESSAGE_HPP

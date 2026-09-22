@@ -5,12 +5,31 @@
 NAME = ircserv
 
 CC = c++
-FLAGS = -Wall -Wextra -Werror -std=c++98
+FLAGS = -Wall -Wextra -Werror -std=c++98 -Iinclude
 
 RM = rm -rf
 VAL = valgrind --leak-check=full --show-leak-kinds=all
 
-SRC = main.cpp 
+SRC = main.cpp \
+      srcs/utils/Utils.cpp \
+      srcs/client/Client.cpp \
+      srcs/channel/Channel.cpp \
+      srcs/server/Server.cpp \
+      srcs/server/ServerSocket.cpp \
+      srcs/server/ServerLoop.cpp \
+      srcs/command/Parser.cpp \
+      srcs/command/CommandHandler.cpp \
+      srcs/command/auth/Pass.cpp \
+      srcs/command/auth/Nick.cpp \
+      srcs/command/auth/User.cpp \
+      srcs/command/channel/Join.cpp \
+      srcs/command/channel/Part.cpp \
+      srcs/command/channel/Topic.cpp \
+      srcs/command/messaging/Privmsg.cpp \
+      srcs/command/messaging/Notice.cpp \
+      srcs/command/oper/Kick.cpp \
+      srcs/command/oper/Invite.cpp \
+      srcs/command/oper/Mode.cpp
 
 OBJ_DIR = obj
 OBJS = $(SRC:%.cpp=$(OBJ_DIR)/%.o)
@@ -36,7 +55,8 @@ all: $(NAME)
 $(OBJ_DIR):
 	@mkdir -p $(OBJ_DIR)
 
-$(OBJ_DIR)/%.o: %.cpp | $(OBJ_DIR)
+$(OBJ_DIR)/%.o: %.cpp
+	@mkdir -p $(dir $@)
 	@$(CC) $(FLAGS) -c $< -o $@
 	@echo "$(YELLOW)[Compiled]$(RESET) $<"
 

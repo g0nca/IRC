@@ -33,27 +33,7 @@
 #include <cstddef>      // std::size_t
 #include <string>
 
-#include "include/Server.hpp"   // pulls in Client.hpp, Channel.hpp, CommandHandler.hpp, Message.hpp
-#include "include/Replies.hpp"  // numeric reply builders (used by Person B)
-
-/**
- * @brief Make a raw IRC string printable by showing \r and \n as visible text.
- *        (Used only by the demo so the CRLF terminators are easy to see.)
- */
-static std::string visible(const std::string& s)
-{
-	std::string out;
-	for (std::size_t i = 0; i < s.size(); ++i)
-	{
-		if (s[i] == '\r')
-			out += "\\r";
-		else if (s[i] == '\n')
-			out += "\\n";
-		else
-			out += s[i];
-	}
-	return out;
-}
+#include "Server.hpp"
 
 /**
  * @brief Validate and convert the <port> argument.
@@ -78,52 +58,6 @@ static bool parsePort(const std::string& arg, int& port)
 	return true;
 }
 
-/**
- * @brief HARD-CODED demonstration of the A <-> B contract.
- *
- * Shows the exact data that crosses the boundary for the command
- * "PRIVMSG #42 :Hello team!":
- *   [1] the raw bytes that arrive on the socket   (Person A receives)
- *   [2] the parsed Message handed to the handler   (Person B receives)
- *   [3] the reply bytes to send back to members    (Person A sends)
- */
-static void demoContract(void)
-{
-	std::cout << "\n========================================================\n";
-	std::cout << " CONTRACT DEMO - what crosses the A <-> B boundary\n";
-	std::cout << "========================================================\n";
-
-	// [1] RAW INPUT - Person A reads this from recv(). In real life it may
-	//     arrive in several pieces; A must rebuild it and split on "\r\n".
-	std::string rawInput = "PRIVMSG #42 :Hello team!\r\n";
-	std::cout << "\n[1] RAW INPUT  (Person A reads from the socket):\n";
-	std::cout << "    \"" << visible(rawInput) << "\"\n";
-
-	// [2] PARSED MESSAGE - what Person B receives via dispatch().
-	//     Built by hand here to document the exact shape of Message.
-	Message msg;
-	msg.prefix      = "";              // clients send no prefix
-	msg.command     = "PRIVMSG";
-	msg.params.push_back("#42");       // the target channel
-	msg.trailing    = "Hello team!";   // text after the first " :"
-	msg.hasTrailing = true;
-
-	std::cout << "\n[2] PARSED Message  (Person B receives this struct):\n";
-	std::cout << "    command  = \"" << msg.command << "\"\n";
-	std::cout << "    params   = [";
-	for (std::size_t i = 0; i < msg.params.size(); ++i)
-		std::cout << "\"" << msg.params[i] << "\""
-		          << (i + 1 < msg.params.size() ? ", " : "");
-	std::cout << "]\n";
-	std::cout << "    trailing = \"" << msg.trailing << "\"  (present="
-	          << (msg.hasTrailing ? "true" : "false") << ")\n";
-
-	// [3] REPLY - what Person B builds and Person A must send to every member
-	//     of #42. The server prepends the sender's "nick!user@host" prefix.
-	std::string reply = ":alice!alice@localhost PRIVMSG #42 :Hello team!\r\n";
-	std::cout << "\n[3] REPLY  (Person B builds it, Person A sends via send()):\n";
-	std::cout << "    \"" << visible(reply) << "\"\n";
-}
 
 int main(int argc, char** argv)
 {
@@ -151,14 +85,16 @@ int main(int argc, char** argv)
 	std::cout << "ircserv ready to start on port " << port
 	          << " (password defined, " << password.size() << " chars).\n";
 
-	// HARD-CODED contract demonstration. Remove this call once the real
-	// Server is implemented and wired in below.
-	demoContract();
-
-	// ===== REAL ENTRY POINT (uncomment when Person A's Server is ready) =====
-	// Server server(port, password);
-	// server.run();
-	// ========================================================================
+	try
+	{
+		Server server(port, password);
+		server.run();
+	}
+	catch (const std::exception& e)
+	{
+		std::cerr << "Error: " << e.what() << "\n";
+		return 1;
+	}
 
 	return 0;
 }
